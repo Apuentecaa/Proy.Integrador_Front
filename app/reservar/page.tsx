@@ -1,567 +1,515 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import Header from "@/components/header"
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Calendar } from '@/components/ui/calendar'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
-  ArrowLeft,
-  ArrowRight,
-  Calendar,
-  Check,
-  CheckCircle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Calendar as CalendarIcon,
   Clock,
-  CreditCard,
-  Download,
-  Heart,
-  Mail,
-  MapPin,
-  Phone,
-  Smartphone,
-  Star,
-  Stethoscope,
   User,
-  Users,
-  X
-} from "lucide-react"
+  MapPin,
+  CreditCard,
+  CheckCircle2,
+  ChevronRight,
+  Stethoscope,
+  FileText,
+} from 'lucide-react'
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/contexts/auth-context'
+import { useAppointments } from '@/contexts/appointments-context'
+import { useDoctors } from '@/contexts/doctors-context'
+import { PaymentFlow } from '@/components/payment-flow'
+import Header from '@/components/header'
+import Footer from '@/components/footer'
 
-const especialidades = [
-  { id: 1, nombre: "Cardiologia", icono: Heart, color: "from-red-500 to-pink-500" },
-  { id: 2, nombre: "Neurologia", icono: Stethoscope, color: "from-purple-500 to-indigo-500" },
-  { id: 3, nombre: "Pediatria", icono: Users, color: "from-pink-500 to-rose-500" },
-  { id: 4, nombre: "Medicina General", icono: Stethoscope, color: "from-emerald-500 to-teal-500" },
-]
-
-const medicos = [
-  { id: 1, nombre: "Dr. Carlos Martinez", especialidad: "Cardiologia", rating: 4.9, experiencia: "15 años", foto: null },
-  { id: 2, nombre: "Dra. Maria Garcia", especialidad: "Cardiologia", rating: 4.8, experiencia: "12 años", foto: null },
-  { id: 3, nombre: "Dr. Jose Rodriguez", especialidad: "Neurologia", rating: 4.7, experiencia: "10 años", foto: null },
-  { id: 4, nombre: "Dra. Ana Torres", especialidad: "Pediatria", rating: 4.9, experiencia: "8 años", foto: null },
-]
-
-const horarios = [
-  { hora: "08:00", disponible: true },
-  { hora: "08:30", disponible: false },
-  { hora: "09:00", disponible: true },
-  { hora: "09:30", disponible: true },
-  { hora: "10:00", disponible: false },
-  { hora: "10:30", disponible: true },
-  { hora: "11:00", disponible: true },
-  { hora: "11:30", disponible: false },
-  { hora: "14:00", disponible: true },
-  { hora: "14:30", disponible: true },
-  { hora: "15:00", disponible: true },
-  { hora: "15:30", disponible: false },
-]
-
-const sedes = [
-  { id: 1, nombre: "San Isidro", direccion: "Av. Javier Prado 1234", piso: "Piso 3, Consultorio 305" },
-  { id: 2, nombre: "Miraflores", direccion: "Av. Larco 567", piso: "Piso 2, Consultorio 201" },
-  { id: 3, nombre: "Surco", direccion: "Av. Primavera 890", piso: "Piso 1, Consultorio 102" },
-]
-
-const steps = [
-  { id: 1, titulo: "Especialidad", icono: Stethoscope },
-  { id: 2, titulo: "Medico y Horario", icono: Calendar },
-  { id: 3, titulo: "Datos", icono: User },
-  { id: 4, titulo: "Pago", icono: CreditCard },
-]
-
-export default function ReservarPage() {
+function BookingContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user, isAuthenticated } = useAuth()
+  const { addAppointment, updateAppointment } = useAppointments()
+  const { doctors: allDoctors, specialties, getDoctorsBySpecialty, getDoctor } = useDoctors()
+  
   const [currentStep, setCurrentStep] = useState(1)
-  const [selectedEspecialidad, setSelectedEspecialidad] = useState<number | null>(null)
-  const [selectedMedico, setSelectedMedico] = useState<number | null>(null)
-  const [selectedFecha, setSelectedFecha] = useState("")
-  const [selectedHora, setSelectedHora] = useState("")
-  const [selectedSede, setSelectedSede] = useState<number | null>(null)
-  const [selectedPayment, setSelectedPayment] = useState("")
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const [formData, setFormData] = useState({
-    nombres: "",
-    apellidos: "",
-    dni: "",
-    telefono: "",
-    email: ""
+  const [selectedDate, setSelectedDate] = useState<Date>()
+  const [registeredAppointmentId, setRegisteredAppointmentId] = useState<string | null>(null)
+  
+  const [bookingData, setBookingData] = useState({
+    specialty: '',
+    doctor: '',
+    timeSlot: '',
+    paymentMethod: '',
   })
 
-  const precioConsulta = 120
-
-  const canProceed = () => {
-    switch (currentStep) {
-      case 1: return selectedEspecialidad !== null
-      case 2: return selectedMedico !== null && selectedFecha && selectedHora && selectedSede !== null
-      case 3: return formData.nombres && formData.apellidos && formData.dni && formData.telefono && formData.email
-      case 4: return selectedPayment !== ""
-      default: return false
+  useEffect(() => {
+    // If user is not authenticated, they should probably log in, but we let them see the first steps.
+    // However, TO-BE model says auth is required before reserving.
+    // We enforce it at step 3.
+    const specialty = searchParams.get('specialty')
+    const doctor = searchParams.get('doctor')
+    if (specialty) {
+      setBookingData(prev => ({ ...prev, specialty, doctor: doctor || '' }))
     }
-  }
+  }, [searchParams])
+
+  const timeSlots = [
+    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+    '17:00', '17:30',
+  ]
+
+  const steps = [
+    { number: 1, title: 'Especialidad y Doctor', icon: Stethoscope },
+    { number: 2, title: 'Fecha y Hora', icon: CalendarIcon },
+    { number: 3, title: 'Resumen', icon: FileText },
+    { number: 4, title: 'Pago', icon: CreditCard },
+  ]
 
   const handleNext = () => {
-    if (currentStep < 4 && canProceed()) {
+    if (currentStep === 1 && (!bookingData.specialty || !bookingData.doctor)) {
+      toast.error('Por favor selecciona especialidad y médico')
+      return
+    }
+    if (currentStep === 2 && (!selectedDate || !bookingData.timeSlot)) {
+      toast.error('Por favor selecciona fecha y hora')
+      return
+    }
+    if (currentStep === 2 && !isAuthenticated) {
+      toast.info('Debes iniciar sesión para continuar', {
+        description: 'Serás redirigido al login'
+      })
+      router.push('/login?redirect=/reservar')
+      return
+    }
+    if (currentStep < 4) {
       setCurrentStep(currentStep + 1)
-    } else if (currentStep === 4 && canProceed()) {
-      setShowConfirmation(true)
     }
   }
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+  const handleRegisterAppointment = () => {
+    if (!selectedDate || !bookingData.specialty || !bookingData.doctor) {
+      toast.error('Faltan datos para registrar la cita')
+      return
     }
-  }
 
-  const generateDates = () => {
-    const dates = []
-    const today = new Date()
-    for (let i = 1; i <= 14; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() + i)
-      if (date.getDay() !== 0) {
-        dates.push({
-          fecha: date.toISOString().split("T")[0],
-          dia: date.toLocaleDateString("es-PE", { weekday: "short" }),
-          numero: date.getDate(),
-          mes: date.toLocaleDateString("es-PE", { month: "short" })
-        })
-      }
+    const selectedDoctor = getDoctor(bookingData.doctor)
+
+    if (!selectedDoctor) {
+      toast.error('Doctor no encontrado')
+      return
     }
-    return dates.slice(0, 10)
+
+    const newAppointment = addAppointment({
+      specialty: bookingData.specialty,
+      doctorId: bookingData.doctor,
+      doctorName: selectedDoctor.name,
+      doctorRating: selectedDoctor.rating,
+      doctorExperience: selectedDoctor.experience,
+      location: 'Policlínico Smart Salud - Sede Ate',
+      floor: selectedDoctor.floor,
+      room: selectedDoctor.room,
+      date: selectedDate.toISOString(),
+      timeSlot: bookingData.timeSlot,
+      status: 'pending_payment',
+      price: selectedDoctor.price,
+    })
+
+    setRegisteredAppointmentId(newAppointment.id)
+    setCurrentStep(4)
   }
 
-  const getMedicosFiltrados = () => {
-    const esp = especialidades.find(e => e.id === selectedEspecialidad)
-    if (!esp) return medicos
-    return medicos.filter(m => m.especialidad === esp.nombre)
-  }
-
-  if (showConfirmation) {
-    const medico = medicos.find(m => m.id === selectedMedico)
-    const sede = sedes.find(s => s.id === selectedSede)
-    const especialidad = especialidades.find(e => e.id === selectedEspecialidad)
-    const codigoReserva = `RES-${Date.now().toString(36).toUpperCase()}`
-
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <main className="max-w-2xl mx-auto px-4 py-12">
-          <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-500 to-blue-500 p-8 text-center text-white">
-              <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center">
-                <CheckCircle className="w-10 h-10 text-emerald-500" />
-              </div>
-              <h1 className="text-2xl font-bold mb-2">Reserva Confirmada</h1>
-              <p className="text-white/90">Tu cita ha sido registrada exitosamente</p>
-            </div>
-
-            <div className="p-8">
-              <div className="bg-gradient-to-br from-emerald-50 to-blue-50 rounded-2xl p-6 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-gray-500">Codigo de Reserva</span>
-                  <span className="font-mono font-bold text-emerald-600 text-lg">{codigoReserva}</span>
-                </div>
-                <div className="border-t border-emerald-100 pt-4 space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Paciente</span>
-                    <span className="font-medium">{formData.nombres} {formData.apellidos}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Especialidad</span>
-                    <span className="font-medium">{especialidad?.nombre}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Medico</span>
-                    <span className="font-medium">{medico?.nombre}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Fecha y Hora</span>
-                    <span className="font-medium">{selectedFecha} - {selectedHora}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Sede</span>
-                    <span className="font-medium">{sede?.nombre}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Ubicacion</span>
-                    <span className="font-medium text-right">{sede?.piso}</span>
-                  </div>
-                  <div className="border-t border-emerald-100 pt-3 flex justify-between">
-                    <span className="text-gray-700 font-semibold">Total Pagado</span>
-                    <span className="font-bold text-emerald-600">S/ {precioConsulta}.00</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <button className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-blue-600 transition-all">
-                  <Download className="w-5 h-5" />
-                  Descargar Comprobante PDF
-                </button>
-                <button className="flex items-center justify-center gap-2 w-full py-3 border border-emerald-200 text-emerald-600 rounded-xl font-semibold hover:bg-emerald-50 transition-all">
-                  <Mail className="w-5 h-5" />
-                  Enviar por Correo
-                </button>
-                <Link 
-                  href="/"
-                  className="flex items-center justify-center gap-2 w-full py-3 text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  Volver al Inicio
-                </Link>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    )
-  }
+  const selectedDoctor = bookingData.doctor ? getDoctor(bookingData.doctor) : null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Back Link */}
-        <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6">
-          <ArrowLeft className="w-4 h-4" />
-          Volver al inicio
-        </Link>
+    <div className="min-h-screen py-8 sm:py-12 bg-gradient-to-br from-emerald-50 via-blue-50 to-white">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4">
+          <h1 className="text-3xl sm:text-4xl font-bold mb-2">
+            Reserva tu{' '}
+            <span className="bg-gradient-to-r from-emerald-500 to-blue-500 bg-clip-text text-transparent">
+              Cita Médica
+            </span>
+          </h1>
+          <p className="text-muted-foreground">Proceso rápido y seguro en 4 simples pasos</p>
+        </div>
 
-        {/* Stepper */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                    currentStep >= step.id 
-                      ? "bg-gradient-to-r from-emerald-500 to-blue-500 text-white" 
-                      : "bg-gray-100 text-gray-400"
-                  }`}>
-                    {currentStep > step.id ? (
-                      <Check className="w-6 h-6" />
-                    ) : (
-                      <step.icono className="w-5 h-5" />
-                    )}
+        {/* Progress Steps */}
+        <div className="mb-8 overflow-x-auto">
+          <div className="flex items-center justify-between min-w-[600px] mx-auto px-4">
+            {steps.map((step, index) => {
+              const Icon = step.icon
+              const isActive = currentStep === step.number
+              const isCompleted = currentStep > step.number
+
+              return (
+                <div key={step.number} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center z-10">
+                    <div
+                      className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 shadow-sm ${
+                        isCompleted
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
+                          : isActive
+                          ? 'bg-gradient-to-r from-emerald-500 to-blue-500 border-transparent text-white scale-110'
+                          : 'bg-white border-gray-200 text-gray-400'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 className="h-6 w-6" />
+                      ) : (
+                        <Icon className="h-5 w-5" />
+                      )}
+                    </div>
+                    <p
+                      className={`text-xs mt-3 text-center w-24 font-medium transition-colors duration-300 ${
+                        isActive ? 'text-gray-900' : isCompleted ? 'text-emerald-600' : 'text-gray-400'
+                      }`}
+                    >
+                      {step.title}
+                    </p>
                   </div>
-                  <span className={`mt-2 text-xs font-medium ${
-                    currentStep >= step.id ? "text-emerald-600" : "text-gray-400"
-                  }`}>
-                    {step.titulo}
-                  </span>
+                  {index < steps.length - 1 && (
+                    <div
+                      className={`flex-1 h-1 mx-2 rounded transition-colors duration-300 ${
+                        isCompleted ? 'bg-emerald-500' : 'bg-gray-200'
+                      }`}
+                    />
+                  )}
                 </div>
-                {index < steps.length - 1 && (
-                  <div className={`w-16 lg:w-24 h-1 mx-2 rounded-full ${
-                    currentStep > step.id ? "bg-emerald-500" : "bg-gray-200"
-                  }`} />
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
-        {/* Content */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-          {/* Step 1: Especialidad */}
+        {/* Step Content */}
+        <div className="animate-in fade-in slide-in-from-right-8 duration-500">
+          
+          {/* Step 1: Specialty and Doctor */}
           {currentStep === 1 && (
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Selecciona una Especialidad</h2>
-              <p className="text-gray-500 mb-6">Elige la especialidad medica que necesitas</p>
-              
-              <div className="grid sm:grid-cols-2 gap-4">
-                {especialidades.map((esp) => (
-                  <button
-                    key={esp.id}
-                    onClick={() => setSelectedEspecialidad(esp.id)}
-                    className={`p-5 rounded-2xl border-2 text-left transition-all ${
-                      selectedEspecialidad === esp.id
-                        ? "border-emerald-500 bg-emerald-50"
-                        : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 bg-gradient-to-br ${esp.color} rounded-2xl flex items-center justify-center`}>
-                        <esp.icono className="w-7 h-7 text-white" />
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card className="shadow-md border-emerald-100/50">
+                <CardHeader>
+                  <CardTitle className="text-xl text-gray-800">Selecciona la Especialidad</CardTitle>
+                  <CardDescription>Elige el área médica que necesitas</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Especialidad</Label>
+                    <Select
+                      value={bookingData.specialty}
+                      onValueChange={(value) =>
+                        setBookingData({ ...bookingData, specialty: value, doctor: '' })
+                      }
+                    >
+                      <SelectTrigger className="h-12 border-gray-200 focus:ring-emerald-500">
+                        <SelectValue placeholder="Seleccionar especialidad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {specialties.map((specialty) => (
+                          <SelectItem key={specialty} value={specialty}>
+                            {specialty}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100">
+                    <div className="flex items-center gap-3 text-sm text-emerald-800">
+                      <div className="p-2 bg-emerald-100 rounded-lg">
+                        <MapPin className="h-4 w-4 text-emerald-600" />
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-gray-900">{esp.nombre}</h3>
-                        <p className="text-sm text-gray-500">Consulta especializada</p>
-                      </div>
-                      {selectedEspecialidad === esp.id && (
-                        <CheckCircle className="w-6 h-6 text-emerald-500" />
-                      )}
+                      <span><strong>Sede única:</strong> Policlínico Smart Salud - Ate, Lima</span>
                     </div>
-                  </button>
-                ))}
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-md border-blue-100/50">
+                <CardHeader>
+                  <CardTitle className="text-xl text-gray-800">Selecciona tu Médico</CardTitle>
+                  <CardDescription>
+                    {bookingData.specialty
+                      ? `Médicos disponibles en ${bookingData.specialty}`
+                      : 'Primero selecciona una especialidad'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {bookingData.specialty && getDoctorsBySpecialty(bookingData.specialty).length > 0 ? (
+                    <RadioGroup
+                      value={bookingData.doctor}
+                      onValueChange={(value) => setBookingData({ ...bookingData, doctor: value })}
+                      className="space-y-3"
+                    >
+                      {getDoctorsBySpecialty(bookingData.specialty).map((doctor) => (
+                        <div
+                          key={doctor.id}
+                          onClick={() => setBookingData({ ...bookingData, doctor: doctor.id })}
+                          className={`flex items-center space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-sm ${
+                            bookingData.doctor === doctor.id
+                              ? 'border-emerald-500 bg-emerald-50/30'
+                              : 'border-gray-100 hover:border-emerald-200 bg-white'
+                          }`}
+                        >
+                          <RadioGroupItem value={doctor.id} id={doctor.id} />
+                          <label htmlFor={doctor.id} className="flex-1 cursor-pointer">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="font-semibold text-gray-900">{doctor.name}</p>
+                                <p className="text-sm text-gray-500 mt-0.5">
+                                  {doctor.experience} de experiencia
+                                </p>
+                              </div>
+                              <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border-yellow-200">
+                                ⭐ {doctor.rating}
+                              </Badge>
+                            </div>
+                          </label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  ) : (
+                    <div className="text-center py-12 px-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+                      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                        <User className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 font-medium">Selecciona una especialidad para ver los médicos disponibles</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 
-          {/* Step 2: Medico y Horario */}
+          {/* Step 2: Date and Time */}
           {currentStep === 2 && (
-            <div className="space-y-8">
-              {/* Medico */}
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Selecciona un Medico</h2>
-                <p className="text-gray-500 mb-4">Elige al especialista de tu preferencia</p>
-                
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {getMedicosFiltrados().map((medico) => (
-                    <button
-                      key={medico.id}
-                      onClick={() => setSelectedMedico(medico.id)}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                        selectedMedico === medico.id
-                          ? "border-emerald-500 bg-emerald-50"
-                          : "border-gray-100 hover:border-gray-200"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-6 h-6 text-emerald-600" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-gray-900">{medico.nombre}</h3>
-                          <p className="text-sm text-gray-500">{medico.experiencia} de experiencia</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                            <span className="text-sm font-medium">{medico.rating}</span>
-                          </div>
-                        </div>
-                        {selectedMedico === medico.id && (
-                          <CheckCircle className="w-5 h-5 text-emerald-500" />
-                        )}
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-xl">Selecciona la Fecha</CardTitle>
+                  <CardDescription>Elige el día de tu cita médica</CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center pb-8">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    locale={es}
+                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || date.getDay() === 0}
+                    className="rounded-xl border shadow-sm p-4 pointer-events-auto"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-xl">Selecciona la Hora</CardTitle>
+                  <CardDescription>
+                    {selectedDate
+                      ? `Horarios para ${format(selectedDate, 'PPP', { locale: es })}`
+                      : 'Primero selecciona una fecha'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {selectedDate ? (
+                    <div className="grid grid-cols-3 gap-3">
+                      {timeSlots.map((time) => (
+                        <Button
+                          key={time}
+                          variant={bookingData.timeSlot === time ? 'default' : 'outline'}
+                          className={`h-12 rounded-xl transition-all ${
+                            bookingData.timeSlot === time
+                              ? 'bg-gradient-to-r from-emerald-500 to-blue-500 shadow-md scale-105'
+                              : 'hover:border-emerald-300 hover:text-emerald-700'
+                          }`}
+                          onClick={() => setBookingData({ ...bookingData, timeSlot: time })}
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          {time}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 px-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+                      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                        <CalendarIcon className="h-8 w-8 text-gray-400" />
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Fecha */}
-              <div>
-                <h3 className="font-bold text-gray-900 mb-3">Selecciona una Fecha</h3>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {generateDates().map((date) => (
-                    <button
-                      key={date.fecha}
-                      onClick={() => setSelectedFecha(date.fecha)}
-                      className={`flex-shrink-0 w-16 py-3 rounded-xl text-center transition-all ${
-                        selectedFecha === date.fecha
-                          ? "bg-gradient-to-br from-emerald-500 to-blue-500 text-white"
-                          : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                      }`}
-                    >
-                      <p className="text-xs uppercase">{date.dia}</p>
-                      <p className="text-xl font-bold">{date.numero}</p>
-                      <p className="text-xs">{date.mes}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Horarios */}
-              <div>
-                <h3 className="font-bold text-gray-900 mb-3">Selecciona un Horario</h3>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {horarios.map((slot) => (
-                    <button
-                      key={slot.hora}
-                      onClick={() => slot.disponible && setSelectedHora(slot.hora)}
-                      disabled={!slot.disponible}
-                      className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
-                        selectedHora === slot.hora
-                          ? "bg-gradient-to-br from-emerald-500 to-blue-500 text-white"
-                          : slot.disponible
-                          ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                          : "bg-gray-50 text-gray-300 cursor-not-allowed line-through"
-                      }`}
-                    >
-                      {slot.hora}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sede */}
-              <div>
-                <h3 className="font-bold text-gray-900 mb-3">Selecciona una Sede</h3>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  {sedes.map((sede) => (
-                    <button
-                      key={sede.id}
-                      onClick={() => setSelectedSede(sede.id)}
-                      className={`p-4 rounded-xl border-2 text-left transition-all ${
-                        selectedSede === sede.id
-                          ? "border-emerald-500 bg-emerald-50"
-                          : "border-gray-100 hover:border-gray-200"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <MapPin className={`w-5 h-5 mt-0.5 ${selectedSede === sede.id ? "text-emerald-500" : "text-gray-400"}`} />
-                        <div>
-                          <h4 className="font-bold text-gray-900">{sede.nombre}</h4>
-                          <p className="text-xs text-gray-500">{sede.direccion}</p>
-                          <p className="text-xs text-emerald-600 mt-1">{sede.piso}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                      <p className="text-gray-500 font-medium">Selecciona una fecha para ver los horarios disponibles</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 
-          {/* Step 3: Datos */}
+          {/* Step 3: Review */}
           {currentStep === 3 && (
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Datos del Paciente</h2>
-              <p className="text-gray-500 mb-6">Completa tus datos para la reserva</p>
-              
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nombres</label>
-                  <input
-                    type="text"
-                    value={formData.nombres}
-                    onChange={(e) => setFormData({...formData, nombres: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Juan Carlos"
-                  />
+            <Card className="max-w-2xl mx-auto shadow-xl border-emerald-100">
+              <CardHeader className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border-b border-gray-100">
+                <CardTitle className="text-2xl text-gray-800">Resumen de tu Cita</CardTitle>
+                <CardDescription>Verifica los datos antes de proceder al pago</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4 p-5 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="p-3 bg-emerald-50 rounded-lg">
+                      <Stethoscope className="h-6 w-6 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Especialidad</p>
+                      <p className="font-semibold text-lg text-gray-900 mt-1">{bookingData.specialty}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4 p-5 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <User className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Médico</p>
+                      <p className="font-semibold text-lg text-gray-900 mt-1">{selectedDoctor?.name}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="secondary" className="bg-blue-50 text-blue-700">⭐ {selectedDoctor?.rating}</Badge>
+                        <span className="text-sm text-gray-500">
+                          {selectedDoctor?.experience}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4 p-5 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="p-3 bg-orange-50 rounded-lg">
+                      <CalendarIcon className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Fecha y Hora</p>
+                      <p className="font-semibold text-lg text-gray-900 mt-1">
+                        {selectedDate && format(selectedDate, 'PPP', { locale: es })}
+                      </p>
+                      <div className="inline-flex items-center mt-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-sm font-medium">
+                        <Clock className="h-4 w-4 mr-2" />
+                        {bookingData.timeSlot}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Apellidos</label>
-                  <input
-                    type="text"
-                    value={formData.apellidos}
-                    onChange={(e) => setFormData({...formData, apellidos: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Perez Garcia"
-                  />
+
+                <div className="border-t border-gray-100 pt-6 mt-6">
+                  <div className="flex justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl">
+                    <span className="text-lg font-medium text-gray-700">Costo de la Consulta:</span>
+                    <span className="text-3xl font-bold text-emerald-600">
+                      S/ {selectedDoctor?.price.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Edit buttons */}
+                  <div className="flex justify-center gap-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentStep(1)}
+                      className="rounded-xl border-gray-200 hover:bg-gray-50"
+                    >
+                      Editar Médico
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentStep(2)}
+                      className="rounded-xl border-gray-200 hover:bg-gray-50"
+                    >
+                      Editar Fecha/Hora
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">DNI</label>
-                  <input
-                    type="text"
-                    value={formData.dni}
-                    onChange={(e) => setFormData({...formData, dni: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="12345678"
-                    maxLength={8}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Telefono</label>
-                  <input
-                    type="tel"
-                    value={formData.telefono}
-                    onChange={(e) => setFormData({...formData, telefono: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="987654321"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Correo Electronico</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="juan@ejemplo.com"
-                  />
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           )}
 
-          {/* Step 4: Pago */}
-          {currentStep === 4 && (
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Metodo de Pago</h2>
-              <p className="text-gray-500 mb-6">Selecciona como deseas pagar tu consulta</p>
-
-              {/* Resumen */}
-              <div className="bg-gradient-to-br from-emerald-50 to-blue-50 rounded-2xl p-5 mb-6">
-                <h3 className="font-bold text-gray-900 mb-3">Resumen de tu Reserva</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Especialidad</span>
-                    <span className="font-medium">{especialidades.find(e => e.id === selectedEspecialidad)?.nombre}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Medico</span>
-                    <span className="font-medium">{medicos.find(m => m.id === selectedMedico)?.nombre}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Fecha y Hora</span>
-                    <span className="font-medium">{selectedFecha} - {selectedHora}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Sede</span>
-                    <span className="font-medium">{sedes.find(s => s.id === selectedSede)?.nombre}</span>
-                  </div>
-                  <div className="border-t border-emerald-200 pt-2 mt-2 flex justify-between">
-                    <span className="font-semibold text-gray-700">Total a Pagar</span>
-                    <span className="font-bold text-emerald-600 text-lg">S/ {precioConsulta}.00</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                {[
-                  { id: "yape", nombre: "Yape", descripcion: "Pago con QR", icono: Smartphone },
-                  { id: "plin", nombre: "Plin", descripcion: "Pago con QR", icono: Smartphone },
-                  { id: "tarjeta", nombre: "Tarjeta de Credito/Debito", descripcion: "Visa, Mastercard", icono: CreditCard },
-                ].map((method) => (
-                  <button
-                    key={method.id}
-                    onClick={() => setSelectedPayment(method.id)}
-                    className={`w-full p-4 rounded-xl border-2 flex items-center gap-4 transition-all ${
-                      selectedPayment === method.id
-                        ? "border-emerald-500 bg-emerald-50"
-                        : "border-gray-100 hover:border-gray-200"
-                    }`}
-                  >
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      selectedPayment === method.id ? "bg-emerald-500" : "bg-gray-100"
-                    }`}>
-                      <method.icono className={`w-6 h-6 ${selectedPayment === method.id ? "text-white" : "text-gray-500"}`} />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <h4 className="font-bold text-gray-900">{method.nombre}</h4>
-                      <p className="text-sm text-gray-500">{method.descripcion}</p>
-                    </div>
-                    {selectedPayment === method.id && (
-                      <CheckCircle className="w-6 h-6 text-emerald-500" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Step 4: Payment Component */}
+          {currentStep === 4 && selectedDate && selectedDoctor && registeredAppointmentId && (
+            <PaymentFlow 
+              amount={selectedDoctor.price} 
+              appointmentDetails={{
+                id: registeredAppointmentId,
+                doctor: selectedDoctor.name,
+                specialty: bookingData.specialty,
+                date: format(selectedDate, 'PPP', { locale: es }),
+                time: bookingData.timeSlot
+              }}
+              onComplete={() => {
+                // The payment component handles the routing or we can do it here
+              }}
+            />
           )}
         </div>
 
-        {/* Navigation */}
-        <div className="flex gap-4">
-          {currentStep > 1 && (
-            <button
-              onClick={handleBack}
-              className="flex-1 flex items-center justify-center gap-2 py-3 border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+        {/* Navigation Buttons */}
+        {currentStep < 4 && (
+          <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100 max-w-5xl mx-auto">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (currentStep > 1) {
+                  setCurrentStep(currentStep - 1)
+                } else {
+                  router.back()
+                }
+              }}
+              size="lg"
+              className="text-gray-500 hover:text-gray-900"
             >
-              <ArrowLeft className="w-5 h-5" />
-              Volver
-            </button>
-          )}
-          <button
-            onClick={handleNext}
-            disabled={!canProceed()}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
-              canProceed()
-                ? "bg-gradient-to-r from-emerald-500 to-blue-500 text-white hover:from-emerald-600 hover:to-blue-600"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {currentStep === 4 ? "Confirmar y Pagar" : "Siguiente"}
-            <ArrowRight className="w-5 h-5" />
-          </button>
-        </div>
-      </main>
+              {currentStep === 1 ? 'Cancelar' : 'Volver Atrás'}
+            </Button>
+
+            {currentStep === 3 ? (
+              <Button
+                onClick={handleRegisterAppointment}
+                size="lg"
+                className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white shadow-lg shadow-emerald-500/25 px-8 rounded-xl h-12"
+              >
+                <CreditCard className="mr-2 h-5 w-5" />
+                Proceder al Pago
+                <ChevronRight className="ml-2 h-5 w-5" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleNext}
+                size="lg"
+                className="bg-gray-900 hover:bg-gray-800 text-white shadow-md px-8 rounded-xl h-12"
+              >
+                Continuar
+                <ChevronRight className="ml-2 h-5 w-5" />
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function BookingPage() {
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <Header />
+      <div className="flex-grow">
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div></div>}>
+          <BookingContent />
+        </Suspense>
+      </div>
+      <Footer />
     </div>
   )
 }

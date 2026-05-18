@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Users, Stethoscope, Phone, Calendar, UserCog, Menu, X, Heart } from "lucide-react"
+import { Home, Users, Stethoscope, Phone, Calendar, UserCog, Menu, X, Heart, LogIn, LogOut, LayoutDashboard } from "lucide-react"
 import { useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
 
 const navItems = [
   { id: "inicio", label: "Inicio", icon: Home, href: "/" },
@@ -15,6 +16,7 @@ const navItems = [
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
+  const { isAuthenticated, logout, user } = useAuth()
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/"
@@ -59,17 +61,40 @@ export default function Header() {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-3">
-            <Link
-              href="/admin"
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-all ${
-                isActive("/admin")
-                  ? "bg-gradient-to-r from-emerald-500 to-blue-500 text-white border-transparent"
-                  : "text-gray-600 hover:text-gray-900 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              <UserCog className="w-4 h-4" />
-              Admin
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-all ${
+                    isActive("/dashboard")
+                      ? "bg-gradient-to-r from-emerald-500 to-blue-500 text-white border-transparent"
+                      : "text-gray-600 hover:text-gray-900 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </Link>
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 px-4 py-2 border rounded-lg transition-all text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 hover:bg-red-50"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Salir
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-all ${
+                  isActive("/login")
+                    ? "bg-gradient-to-r from-emerald-500 to-blue-500 text-white border-transparent"
+                    : "text-gray-600 hover:text-gray-900 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <LogIn className="w-4 h-4" />
+                Iniciar Sesión
+              </Link>
+            )}
             <Link
               href="/reservar"
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-lg hover:from-emerald-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg"
@@ -112,14 +137,37 @@ export default function Header() {
                 )
               })}
               <div className="border-t border-gray-100 mt-2 pt-2 flex flex-col gap-2">
-                <Link
-                  href="/admin"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-gray-600 border border-gray-200 rounded-lg"
-                >
-                  <UserCog className="w-5 h-5" />
-                  Administrador
-                </Link>
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-gray-600 border border-gray-200 rounded-lg"
+                    >
+                      <LayoutDashboard className="w-5 h-5" />
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout()
+                        setMenuOpen(false)
+                      }}
+                      className="flex items-center gap-3 px-4 py-3 text-red-600 border border-red-200 rounded-lg text-left"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Cerrar Sesión
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-gray-600 border border-gray-200 rounded-lg"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    Iniciar Sesión
+                  </Link>
+                )}
                 <Link
                   href="/reservar"
                   onClick={() => setMenuOpen(false)}
