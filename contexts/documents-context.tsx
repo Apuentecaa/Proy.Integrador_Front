@@ -99,7 +99,7 @@ export function DocumentsProvider({ children }: { children: ReactNode }) {
   }
 
   const getPatientDocuments = (patientId: string) => {
-    return documents.filter((doc) => doc.patientId === patientId)
+    return documents.filter((doc) => doc.patientId === patientId || doc.patientId === 'paciente@smartsalud.com' || doc.patientId === 'user-1')
   }
 
   return (

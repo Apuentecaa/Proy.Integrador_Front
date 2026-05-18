@@ -269,6 +269,7 @@ export default function SearchDoctorsPage() {
             </Card>
           )}
         </div>
+        </div>
       </div>
       <Footer />
     </div>

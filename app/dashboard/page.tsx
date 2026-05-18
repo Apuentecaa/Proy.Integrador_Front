@@ -17,12 +17,23 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import Link from 'next/link'
+import AdminPanel from '@/components/admin-panel'
+import DoctorPanel from '@/components/doctor-panel'
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const router = useRouter()
   const { appointments } = useAppointments()
   const { getPatientDocuments } = useDocuments()
+
+  // Dynamic dashboard routing based on role
+  if (user?.role === 'admin') {
+    return <AdminPanel onBack={() => logout()} />
+  }
+
+  if (user?.role === 'doctor') {
+    return <DoctorPanel onBack={() => logout()} />
+  }
 
   // Calculate real data from appointments
   const upcomingAppointments = appointments
