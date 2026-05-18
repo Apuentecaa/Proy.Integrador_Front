@@ -1,6 +1,6 @@
 "use client"
 
-import { Calendar, Clock, MapPin, MoreVertical, Edit, X, CheckCircle2, AlertCircle, DollarSign } from 'lucide-react'
+import { Calendar, Clock, MapPin, MoreVertical, Edit, X, CheckCircle2, AlertCircle, DollarSign, CreditCard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
