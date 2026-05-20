@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Header from "@/components/header"
 import { 
@@ -68,12 +68,38 @@ const sedes = ["San Isidro", "Miraflores", "Surco"]
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>("medicos")
-  const [medicos, setMedicos] = useState<Medico[]>(initialMedicos)
-  const [citas, setCitas] = useState<Cita[]>(initialCitas)
+  const [medicos, setMedicos] = useState<Medico[]>([])
+  const [citas, setCitas] = useState<Cita[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [showModal, setShowModal] = useState(false)
   const [editingMedico, setEditingMedico] = useState<Medico | null>(null)
   const [newMedico, setNewMedico] = useState({ nombre: "", especialidad: "", sede: "" })
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        // TODO: Reemplazar con las llamadas reales a tu API
+        // const resMedicos = await fetch('/api/medicos')
+        // const dataMedicos = await resMedicos.json()
+        // const resCitas = await fetch('/api/citas')
+        // const dataCitas = await resCitas.json()
+        
+        // setMedicos(dataMedicos)
+        // setCitas(dataCitas)
+
+        // Mock temporal
+        setMedicos(initialMedicos)
+        setCitas(initialCitas)
+      } catch (error) {
+        console.error("Error al cargar datos:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
   const tabs = [
     { id: "medicos" as TabType, label: "Medicos", icon: Users },
@@ -89,37 +115,70 @@ export default function AdminPage() {
     { label: "Pendientes", value: citas.filter(c => c.estado === "pendiente").length, icon: Clock, trend: "Requieren atencion", color: "from-amber-500 to-amber-600" },
   ]
 
-  const handleAddMedico = () => {
+  const handleAddMedico = async () => {
     if (newMedico.nombre && newMedico.especialidad && newMedico.sede) {
-      const medico: Medico = {
-        id: medicos.length + 1,
-        nombre: newMedico.nombre,
-        especialidad: newMedico.especialidad,
-        sede: newMedico.sede,
-        rating: 5.0,
-        pacientes: 0,
-        estado: "activo"
+      try {
+        const medico: Medico = {
+          id: medicos.length + 1, // Esto lo deberia retornar tu backend
+          nombre: newMedico.nombre,
+          especialidad: newMedico.especialidad,
+          sede: newMedico.sede,
+          rating: 5.0,
+          pacientes: 0,
+          estado: "activo"
+        }
+        
+        // TODO: Llamada API para agregar medico
+        // const res = await fetch('/api/medicos', { method: 'POST', body: JSON.stringify(medico) })
+        // const newMedicoData = await res.json()
+        // setMedicos([...medicos, newMedicoData])
+        
+        setMedicos([...medicos, medico])
+        setNewMedico({ nombre: "", especialidad: "", sede: "" })
+        setShowModal(false)
+      } catch (error) {
+        console.error("Error al agregar medico:", error)
       }
-      setMedicos([...medicos, medico])
-      setNewMedico({ nombre: "", especialidad: "", sede: "" })
-      setShowModal(false)
     }
   }
 
-  const handleEditMedico = () => {
+  const handleEditMedico = async () => {
     if (editingMedico) {
-      setMedicos(medicos.map(m => m.id === editingMedico.id ? editingMedico : m))
-      setEditingMedico(null)
-      setShowModal(false)
+      try {
+        // TODO: Llamada API para editar medico
+        // await fetch(`/api/medicos/${editingMedico.id}`, { method: 'PUT', body: JSON.stringify(editingMedico) })
+        
+        setMedicos(medicos.map(m => m.id === editingMedico.id ? editingMedico : m))
+        setEditingMedico(null)
+        setShowModal(false)
+      } catch (error) {
+        console.error("Error al editar medico:", error)
+      }
     }
   }
 
-  const handleDeleteMedico = (id: number) => {
-    setMedicos(medicos.filter(m => m.id !== id))
+  const handleDeleteMedico = async (id: number) => {
+    if (confirm("Estas seguro de eliminar este medico?")) {
+      try {
+        // TODO: Llamada API para eliminar medico
+        // await fetch(`/api/medicos/${id}`, { method: 'DELETE' })
+        
+        setMedicos(medicos.filter(m => m.id !== id))
+      } catch (error) {
+        console.error("Error al eliminar medico:", error)
+      }
+    }
   }
 
-  const handleCitaStatusChange = (id: string, estado: Cita["estado"]) => {
-    setCitas(citas.map(c => c.id === id ? { ...c, estado } : c))
+  const handleCitaStatusChange = async (id: string, estado: Cita["estado"]) => {
+    try {
+      // TODO: Llamada API para cambiar estado de cita
+      // await fetch(`/api/citas/${id}/status`, { method: 'PATCH', body: JSON.stringify({ estado }) })
+      
+      setCitas(citas.map(c => c.id === id ? { ...c, estado } : c))
+    } catch (error) {
+      console.error("Error al actualizar estado de la cita:", error)
+    }
   }
 
   const filteredMedicos = medicos.filter(m => 
@@ -169,7 +228,12 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden relative min-h-[400px]">
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+              <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
           <div className="border-b border-gray-100">
             <nav className="flex">
               {tabs.map((tab) => (
