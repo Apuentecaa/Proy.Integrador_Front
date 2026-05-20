@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   ArrowLeft,
   Users,
@@ -45,12 +45,40 @@ const specialties = [
 
 export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<"doctors" | "appointments" | "reports" | "settings">("doctors")
-  const [doctors, setDoctors] = useState(initialDoctors)
-  const [appointments, setAppointments] = useState(initialAppointments)
+  const [doctors, setDoctors] = useState<typeof initialDoctors>([])
+  const [appointments, setAppointments] = useState<typeof initialAppointments>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddDoctor, setShowAddDoctor] = useState(false)
   const [editingDoctor, setEditingDoctor] = useState<typeof initialDoctors[0] | null>(null)
   const [newDoctor, setNewDoctor] = useState({ name: "", specialty: "", sede: "San Isidro", status: "Activo" })
+
+  // Efecto para cargar los datos iniciales desde la API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        // TODO: Reemplazar con tus llamadas a la API reales
+        // const resDoctors = await fetch('/api/doctors')
+        // const dataDoctors = await resDoctors.json()
+        // const resAppointments = await fetch('/api/appointments')
+        // const dataAppointments = await resAppointments.json()
+        
+        // setDoctors(dataDoctors)
+        // setAppointments(dataAppointments)
+
+        // Mock temporal simulando una petición de red
+        setDoctors(initialDoctors)
+        setAppointments(initialAppointments)
+      } catch (error) {
+        console.error("Error al cargar los datos:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const filteredDoctors = doctors.filter(d =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -62,29 +90,59 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     a.doctor.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleAddDoctor = () => {
+  const handleAddDoctor = async () => {
     if (newDoctor.name && newDoctor.specialty) {
-      setDoctors([...doctors, { ...newDoctor, id: doctors.length + 1 }])
-      setNewDoctor({ name: "", specialty: "", sede: "San Isidro", status: "Activo" })
-      setShowAddDoctor(false)
+      try {
+        // TODO: Llamada a la API para crear medico
+        // const res = await fetch('/api/doctors', { method: 'POST', body: JSON.stringify(newDoctor) })
+        // const createdDoctor = await res.json()
+        // setDoctors([...doctors, createdDoctor])
+        
+        setDoctors([...doctors, { ...newDoctor, id: doctors.length + 1 }])
+        setNewDoctor({ name: "", specialty: "", sede: "San Isidro", status: "Activo" })
+        setShowAddDoctor(false)
+      } catch (error) {
+        console.error("Error al agregar medico:", error)
+      }
     }
   }
 
-  const handleEditDoctor = () => {
+  const handleEditDoctor = async () => {
     if (editingDoctor) {
-      setDoctors(doctors.map(d => d.id === editingDoctor.id ? editingDoctor : d))
-      setEditingDoctor(null)
+      try {
+        // TODO: Llamada a la API para actualizar medico
+        // await fetch(`/api/doctors/${editingDoctor.id}`, { method: 'PUT', body: JSON.stringify(editingDoctor) })
+        
+        setDoctors(doctors.map(d => d.id === editingDoctor.id ? editingDoctor : d))
+        setEditingDoctor(null)
+      } catch (error) {
+        console.error("Error al actualizar medico:", error)
+      }
     }
   }
 
-  const handleDeleteDoctor = (id: number) => {
+  const handleDeleteDoctor = async (id: number) => {
     if (confirm("Estas seguro de eliminar este medico?")) {
-      setDoctors(doctors.filter(d => d.id !== id))
+      try {
+        // TODO: Llamada a la API para eliminar medico
+        // await fetch(`/api/doctors/${id}`, { method: 'DELETE' })
+        
+        setDoctors(doctors.filter(d => d.id !== id))
+      } catch (error) {
+        console.error("Error al eliminar medico:", error)
+      }
     }
   }
 
-  const handleUpdateAppointmentStatus = (id: number, status: string) => {
-    setAppointments(appointments.map(a => a.id === id ? { ...a, status } : a))
+  const handleUpdateAppointmentStatus = async (id: number, status: string) => {
+    try {
+        // TODO: Llamada a la API para actualizar estado de la cita
+        // await fetch(`/api/appointments/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
+        
+        setAppointments(appointments.map(a => a.id === id ? { ...a, status } : a))
+    } catch (error) {
+        console.error("Error al actualizar estado de la cita:", error)
+    }
   }
 
   const stats = {
@@ -192,7 +250,12 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm relative min-h-[400px]">
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
+              <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
           {activeTab === "doctors" && (
             <div>
               <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
