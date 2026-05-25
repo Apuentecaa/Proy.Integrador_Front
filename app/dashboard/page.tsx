@@ -32,7 +32,8 @@ export default function DashboardPage() {
   }
 
   if (user?.role === 'doctor') {
-    return <DoctorPanel onBack={() => logout()} />
+    router.replace('/medico/citas')
+    return null
   }
 
   // Calculate real data from appointments
