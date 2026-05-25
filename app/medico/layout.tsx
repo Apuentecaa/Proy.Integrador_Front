@@ -19,11 +19,13 @@ export default function MedicoLayout({ children }: { children: React.ReactNode }
   const { isAuthenticated, user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const isLoginPage = pathname === '/medico/login'
 
   useEffect(() => {
+    if (isLoginPage) return // login es público
     const stored = typeof window !== 'undefined' ? localStorage.getItem('smartSaludUser') : null
     if (!isAuthenticated && !stored) {
-      router.push('/login')
+      router.push('/medico/login')
       return
     }
     const storedUser = stored ? JSON.parse(stored) : null
@@ -31,7 +33,10 @@ export default function MedicoLayout({ children }: { children: React.ReactNode }
     if (role && role !== 'doctor') {
       router.push('/dashboard')
     }
-  }, [isAuthenticated, user, router])
+  }, [isAuthenticated, user, router, isLoginPage])
+
+  // En el login no envolvemos con Header/Footer/Sub-nav: lo renderiza su propia página
+  if (isLoginPage) return <>{children}</>
 
   if (!isAuthenticated && typeof window !== 'undefined' && !localStorage.getItem('smartSaludUser')) {
     return (
