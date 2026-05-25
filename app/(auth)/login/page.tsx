@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Heart, Mail, Lock, ArrowLeft, UserCircle2, UserCog, Stethoscope } from 'lucide-react'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth, Role } from '@/contexts/auth-context'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
@@ -27,11 +27,20 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await login(formData.email, formData.password)
+      const role = await login(formData.email, formData.password)
       toast.success('¡Bienvenido a Smart Salud!', {
         description: 'Has iniciado sesión correctamente',
       })
-      router.push('/dashboard')
+      
+      if (role === 'admin' || role === 'super_admin') {
+        router.push('/admin')
+      } else if (role === 'doctor') {
+        router.push('/dashboard/citas')
+      } else if (role === 'receptionist') {
+        router.push('/dashboard') // Or specific receptionist path
+      } else {
+        router.push('/dashboard')
+      }
     } catch (error) {
       toast.error('Error al iniciar sesión', {
         description: 'Verifica tus credenciales e intenta nuevamente',
@@ -41,16 +50,18 @@ export default function LoginPage() {
     }
   }
 
-  const fillCredentials = (role: 'admin' | 'doctor' | 'patient') => {
+  const fillCredentials = (role: Role) => {
     let email = ''
-    if (role === 'admin') email = 'admin@smartsalud.com'
-    if (role === 'doctor') email = 'doctor@smartsalud.com'
-    if (role === 'patient') email = 'paciente@smartsalud.com'
+    if (role === 'super_admin') email = 'superadmin@vidasalud.pe'
+    if (role === 'admin') email = 'admin@vidasalud.com'
+    if (role === 'receptionist') email = 'recepcion@vidasalud.pe'
+    if (role === 'doctor') email = 'c.mendoza@vidasalud.pe'
+    if (role === 'patient') email = 'juan.perez@email.com'
 
     setFormData({
       ...formData,
       email: email,
-      password: 'password123'
+      password: 'Password123'
     })
     
     toast.info(`Credenciales de ${role} cargadas`)
@@ -96,7 +107,7 @@ export default function LoginPage() {
               <p className="text-xs text-muted-foreground font-semibold uppercase mb-3 text-center tracking-wider">
                 Acceso Rápido (Demo)
               </p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -120,12 +131,32 @@ export default function LoginPage() {
                 <Button 
                   variant="outline" 
                   size="sm" 
+                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200"
+                  onClick={() => fillCredentials('receptionist')}
+                  type="button"
+                >
+                  <UserCircle2 className="w-4 h-4" />
+                  <span className="text-[10px]">Recepción</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
                   className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
                   onClick={() => fillCredentials('admin')}
                   type="button"
                 >
                   <UserCog className="w-4 h-4" />
                   <span className="text-[10px]">Admin</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                  onClick={() => fillCredentials('super_admin')}
+                  type="button"
+                >
+                  <UserCog className="w-4 h-4" />
+                  <span className="text-[10px]">S. Admin</span>
                 </Button>
               </div>
             </div>

@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 
-export type Role = 'patient' | 'doctor' | 'admin'
+export type Role = 'patient' | 'doctor' | 'receptionist' | 'admin' | 'super_admin'
 
 export interface User {
   id: string
@@ -16,7 +16,7 @@ export interface User {
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
-  login: (email: string, password: string, role?: Role) => Promise<void>
+  login: (email: string, password: string, role?: Role) => Promise<Role | void>
   register: (name: string, email: string, phone: string, password: string) => Promise<void>
   logout: () => void
 }
@@ -36,25 +36,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string, role: Role = 'patient') => {
-    // Simulación de login - en producción esto se conectaría a un backend
-    // Aquí usamos el rol pasado o 'patient' por defecto. Para los botones hardcodeados, pasaremos el rol explícitamente.
-    
-    // Determinamos el rol basado en el email si es uno de los hardcodeados
-    let assignedRole: Role = role;
-    if (email === 'admin@smartsalud.com') assignedRole = 'admin';
-    else if (email === 'doctor@smartsalud.com') assignedRole = 'doctor';
-    else if (email === 'paciente@smartsalud.com') assignedRole = 'patient';
+    try {
+      const response = await fetch('http://localhost:8080/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
 
-    const mockUser: User = {
-      id: Date.now().toString(),
-      name: assignedRole === 'admin' ? 'Administrador' : assignedRole === 'doctor' ? 'Dr. Médico' : 'Paciente Demo',
-      email: email,
-      phone: '+51 987 654 321',
-      role: assignedRole
+      if (!response.ok) {
+        throw new Error('Credenciales inválidas');
+      }
+
+      const data = await response.json();
+      
+      const realUser: User = {
+        id: data.id.toString(),
+        name: data.nombre,
+        email: data.email,
+        phone: 'Registrado en BD',
+        role: data.role as Role || 'patient'
+      }
+      
+      setUser(realUser)
+      localStorage.setItem('smartSaludUser', JSON.stringify(realUser))
+      localStorage.setItem('smartSaludToken', data.token) // Guardamos el JWT
+      return realUser.role; // Returning role so login page can redirect accordingly
+    } catch (error) {
+      console.error("Login falló:", error);
+      alert("Error al iniciar sesión. Verifica tus credenciales.");
+      throw error;
     }
-    
-    setUser(mockUser)
-    localStorage.setItem('smartSaludUser', JSON.stringify(mockUser))
   }
 
   const register = async (name: string, email: string, phone: string, password: string) => {
@@ -73,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem('smartSaludUser')
+    localStorage.removeItem('smartSaludToken')
     router.push('/login')
   }
 

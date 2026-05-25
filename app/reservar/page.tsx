@@ -51,13 +51,41 @@ function BookingContent() {
     specialty: '',
     doctor: '',
     timeSlot: '',
+    horarioId: 0,
     paymentMethod: '',
   })
 
+  // Data from API
+  const [apiDoctors, setApiDoctors] = useState<any[]>([])
+  const [apiTimeSlots, setApiTimeSlots] = useState<any[]>([])
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
+
+  // Fetch doctors on mount
+  useEffect(() => {
+    fetch('http://localhost:8080/api/v1/medicos')
+      .then(res => res.json())
+      .then(data => setApiDoctors(data))
+      .catch(err => console.error("Error loading doctors", err))
+  }, [])
+
+  // Fetch available slots when doctor and date change
+  useEffect(() => {
+    if (bookingData.doctor && selectedDate) {
+      setIsLoadingSlots(true)
+      const dateStr = format(selectedDate, 'yyyy-MM-dd')
+      fetch(`http://localhost:8080/api/v1/citas/disponibles?medicoId=${bookingData.doctor}&fecha=${dateStr}`)
+        .then(res => res.json())
+        .then(data => setApiTimeSlots(data))
+        .catch(err => console.error("Error loading slots", err))
+        .finally(() => setIsLoadingSlots(false))
+    }
+  }, [bookingData.doctor, selectedDate])
+
+  // Derive specialties from doctors
+  const uniqueSpecialties = Array.from(new Set(apiDoctors.map(d => d.especialidadNombre)))
+
   useEffect(() => {
     // If user is not authenticated, they should probably log in, but we let them see the first steps.
-    // However, TO-BE model says auth is required before reserving.
-    // We enforce it at step 3.
     const specialty = searchParams.get('specialty')
     const doctor = searchParams.get('doctor')
     if (specialty) {
@@ -99,39 +127,55 @@ function BookingContent() {
     }
   }
 
-  const handleRegisterAppointment = () => {
-    if (!selectedDate || !bookingData.specialty || !bookingData.doctor) {
+  const handleRegisterAppointment = async () => {
+    if (!selectedDate || !bookingData.specialty || !bookingData.doctor || !bookingData.horarioId) {
       toast.error('Faltan datos para registrar la cita')
       return
     }
 
-    const selectedDoctor = getDoctor(bookingData.doctor)
+    const selectedDoctorInfo = apiDoctors.find(d => d.id.toString() === bookingData.doctor)
 
-    if (!selectedDoctor) {
+    if (!selectedDoctorInfo) {
       toast.error('Doctor no encontrado')
       return
     }
 
-    const newAppointment = addAppointment({
-      specialty: bookingData.specialty,
-      doctorId: bookingData.doctor,
-      doctorName: selectedDoctor.name,
-      doctorRating: selectedDoctor.rating,
-      doctorExperience: selectedDoctor.experience,
-      location: 'Policlínico Smart Salud - Sede Ate',
-      floor: selectedDoctor.floor,
-      room: selectedDoctor.room,
-      date: selectedDate.toISOString(),
-      timeSlot: bookingData.timeSlot,
-      status: 'pending_payment',
-      price: selectedDoctor.price,
-    })
-
-    setRegisteredAppointmentId(newAppointment.id)
+    // Just advance to step 4 (payment). The actual API call will happen inside PaymentFlow
     setCurrentStep(4)
   }
 
-  const selectedDoctor = bookingData.doctor ? getDoctor(bookingData.doctor) : null
+  const handleProcessPayment = async (cardNumber: string, cvv: string): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem('smartSaludToken')
+      const response = await fetch('http://localhost:8080/api/v1/citas/reservar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          horarioId: bookingData.horarioId,
+          fecha: format(selectedDate!, 'yyyy-MM-dd'),
+          hora: bookingData.timeSlot + ":00",
+          tarjetaNumero: cardNumber,
+          cvv: cvv
+        })
+      })
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const resCode = await response.text()
+      setRegisteredAppointmentId(resCode) // Save the real code from backend
+      return resCode;
+    } catch (e) {
+      console.error(e)
+      return null;
+    }
+  }
+
+  const selectedDoctor = bookingData.doctor ? apiDoctors.find(d => d.id.toString() === bookingData.doctor) : null
 
   return (
     <div className="min-h-screen py-8 sm:py-12 bg-gradient-to-br from-emerald-50 via-blue-50 to-white">
@@ -218,7 +262,7 @@ function BookingContent() {
                         <SelectValue placeholder="Seleccionar especialidad" />
                       </SelectTrigger>
                       <SelectContent>
-                        {specialties.map((specialty) => (
+                        {uniqueSpecialties.map((specialty) => (
                           <SelectItem key={specialty} value={specialty}>
                             {specialty}
                           </SelectItem>
@@ -248,33 +292,33 @@ function BookingContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {bookingData.specialty && getDoctorsBySpecialty(bookingData.specialty).length > 0 ? (
+                  {bookingData.specialty && apiDoctors.filter(d => d.especialidadNombre === bookingData.specialty).length > 0 ? (
                     <RadioGroup
                       value={bookingData.doctor}
                       onValueChange={(value) => setBookingData({ ...bookingData, doctor: value })}
                       className="space-y-3"
                     >
-                      {getDoctorsBySpecialty(bookingData.specialty).map((doctor) => (
+                      {apiDoctors.filter(d => d.especialidadNombre === bookingData.specialty).map((doctor) => (
                         <div
                           key={doctor.id}
-                          onClick={() => setBookingData({ ...bookingData, doctor: doctor.id })}
+                          onClick={() => setBookingData({ ...bookingData, doctor: doctor.id.toString() })}
                           className={`flex items-center space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-sm ${
-                            bookingData.doctor === doctor.id
+                            bookingData.doctor === doctor.id.toString()
                               ? 'border-emerald-500 bg-emerald-50/30'
                               : 'border-gray-100 hover:border-emerald-200 bg-white'
                           }`}
                         >
-                          <RadioGroupItem value={doctor.id} id={doctor.id} />
-                          <label htmlFor={doctor.id} className="flex-1 cursor-pointer">
+                          <RadioGroupItem value={doctor.id.toString()} id={doctor.id.toString()} />
+                          <label htmlFor={doctor.id.toString()} className="flex-1 cursor-pointer">
                             <div className="flex items-start justify-between">
                               <div>
-                                <p className="font-semibold text-gray-900">{doctor.name}</p>
+                                <p className="font-semibold text-gray-900">{doctor.nombres} {doctor.apellidos}</p>
                                 <p className="text-sm text-gray-500 mt-0.5">
-                                  {doctor.experience} de experiencia
+                                  {doctor.aniosExperiencia} años de experiencia
                                 </p>
                               </div>
                               <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border-yellow-200">
-                                ⭐ {doctor.rating}
+                                ⭐ 5.0
                               </Badge>
                             </div>
                           </label>
@@ -324,24 +368,34 @@ function BookingContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {selectedDate ? (
+                  {selectedDate && isLoadingSlots ? (
+                    <div className="text-center py-12 px-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+                      <p className="text-gray-500">Cargando horarios...</p>
+                    </div>
+                  ) : selectedDate && apiTimeSlots.length > 0 ? (
                     <div className="grid grid-cols-3 gap-3">
-                      {timeSlots.map((time) => (
+                      {apiTimeSlots.filter(t => t.disponible).map((slot) => {
+                        const time = slot.horaInicio.substring(0, 5) // "10:00:00" -> "10:00"
+                        return (
                         <Button
-                          key={time}
+                          key={slot.id}
                           variant={bookingData.timeSlot === time ? 'default' : 'outline'}
                           className={`h-12 rounded-xl transition-all ${
                             bookingData.timeSlot === time
                               ? 'bg-gradient-to-r from-emerald-500 to-blue-500 shadow-md scale-105'
                               : 'hover:border-emerald-300 hover:text-emerald-700'
                           }`}
-                          onClick={() => setBookingData({ ...bookingData, timeSlot: time })}
+                          onClick={() => setBookingData({ ...bookingData, timeSlot: time, horarioId: slot.id })}
                         >
                           <Clock className="h-4 w-4 mr-2" />
                           {time}
                         </Button>
-                      ))}
+                      )})}
                     </div>
+                  ) : selectedDate ? (
+                     <div className="text-center py-12 px-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+                      <p className="text-gray-500">No hay horarios disponibles para esta fecha.</p>
+                     </div>
                   ) : (
                     <div className="text-center py-12 px-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
@@ -380,11 +434,11 @@ function BookingContent() {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Médico</p>
-                      <p className="font-semibold text-lg text-gray-900 mt-1">{selectedDoctor?.name}</p>
+                      <p className="font-semibold text-lg text-gray-900 mt-1">{selectedDoctor?.nombres} {selectedDoctor?.apellidos}</p>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="secondary" className="bg-blue-50 text-blue-700">⭐ {selectedDoctor?.rating}</Badge>
+                        <Badge variant="secondary" className="bg-blue-50 text-blue-700">⭐ 5.0</Badge>
                         <span className="text-sm text-gray-500">
-                          {selectedDoctor?.experience}
+                          {selectedDoctor?.aniosExperiencia} años
                         </span>
                       </div>
                     </div>
@@ -411,7 +465,7 @@ function BookingContent() {
                   <div className="flex justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl">
                     <span className="text-lg font-medium text-gray-700">Costo de la Consulta:</span>
                     <span className="text-3xl font-bold text-emerald-600">
-                      S/ {selectedDoctor?.price.toFixed(2)}
+                      S/ 150.00
                     </span>
                   </div>
 
@@ -438,16 +492,17 @@ function BookingContent() {
           )}
 
           {/* Step 4: Payment Component */}
-          {currentStep === 4 && selectedDate && selectedDoctor && registeredAppointmentId && (
+          {currentStep === 4 && selectedDate && selectedDoctor && (
             <PaymentFlow 
-              amount={selectedDoctor.price} 
+              amount={150.00} 
               appointmentDetails={{
-                id: registeredAppointmentId,
-                doctor: selectedDoctor.name,
+                id: registeredAppointmentId || 'NUEVA',
+                doctor: selectedDoctor.nombres + " " + selectedDoctor.apellidos,
                 specialty: bookingData.specialty,
                 date: format(selectedDate, 'PPP', { locale: es }),
                 time: bookingData.timeSlot
               }}
+              onProcessPayment={handleProcessPayment}
               onComplete={() => {
                 // The payment component handles the routing or we can do it here
               }}
