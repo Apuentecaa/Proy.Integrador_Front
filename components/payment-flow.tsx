@@ -18,26 +18,33 @@ interface PaymentFlowProps {
     time: string
   }
   onComplete: () => void
+  onProcessPayment: (cardNumber: string, cvv: string) => Promise<string | null>
 }
 
-export function PaymentFlow({ amount, appointmentDetails, onComplete }: PaymentFlowProps) {
+export function PaymentFlow({ amount, appointmentDetails, onComplete, onProcessPayment }: PaymentFlowProps) {
   const [paymentState, setPaymentState] = useState<PaymentState>('form')
   const [cardNumber, setCardNumber] = useState('')
   const [cardName, setCardName] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
   const [cvv, setCvv] = useState('')
+  const [realReservationId, setRealReservationId] = useState('')
   const router = useRouter()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPaymentState('processing')
 
-    // Simulate payment processing
-    setTimeout(() => {
-      // 90% success rate
-      const success = Math.random() > 0.1
-      setPaymentState(success ? 'success' : 'error')
-    }, 2500)
+    try {
+      const resCode = await onProcessPayment(cardNumber, cvv)
+      if (resCode) {
+        setRealReservationId(resCode)
+        setPaymentState('success')
+      } else {
+        setPaymentState('error')
+      }
+    } catch (e) {
+      setPaymentState('error')
+    }
   }
 
   const handleRetry = () => {
@@ -70,7 +77,7 @@ export function PaymentFlow({ amount, appointmentDetails, onComplete }: PaymentF
     
     // Details
     doc.setFontSize(12)
-    doc.text(`N° de Reserva: #${appointmentDetails.id.slice(-8).toUpperCase()}`, 20, 50)
+    doc.text(`N° de Reserva: #${realReservationId || appointmentDetails.id.slice(-8).toUpperCase()}`, 20, 50)
     doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, 20, 60)
     
     // Line separator
@@ -100,7 +107,7 @@ export function PaymentFlow({ amount, appointmentDetails, onComplete }: PaymentF
     doc.text('Este documento es un comprobante válido de su cita médica.', 20, 270)
     doc.text('Por favor, asista 15 minutos antes de su turno.', 20, 278)
 
-    doc.save(`Reserva_SmartSalud_${appointmentDetails.id.slice(-8)}.pdf`)
+    doc.save(`Reserva_SmartSalud_${realReservationId || appointmentDetails.id.slice(-8)}.pdf`)
   }
 
   return (
@@ -199,7 +206,7 @@ export function PaymentFlow({ amount, appointmentDetails, onComplete }: PaymentF
           </p>
 
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-left">
-            <h3 className="font-medium mb-2 text-green-900">Ticket de Reserva: #{appointmentDetails.id.slice(-8).toUpperCase()}</h3>
+            <h3 className="font-medium mb-2 text-green-900">Ticket de Reserva: #{realReservationId || appointmentDetails.id.slice(-8).toUpperCase()}</h3>
             <div className="space-y-1 text-sm text-green-800">
               <p><strong>Médico:</strong> {appointmentDetails.doctor}</p>
               <p><strong>Fecha:</strong> {appointmentDetails.date}</p>

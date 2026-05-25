@@ -24,9 +24,9 @@ export default function SearchDoctorsPage() {
   })
 
   const filteredDoctors = allDoctors.filter((doctor) => {
-    const matchesSpecialty = !filters.specialty || doctor.specialty === filters.specialty
-    const matchesDoctor = !filters.doctor || doctor.id === filters.doctor
-    const matchesAvailability = !filters.availability || doctor.availability === filters.availability
+    const matchesSpecialty = !filters.specialty || filters.specialty === 'all' || doctor.specialty === filters.specialty
+    const matchesDoctor = !filters.doctor || filters.doctor === 'all' || doctor.id === filters.doctor
+    const matchesAvailability = !filters.availability || filters.availability === 'all' || doctor.availability === filters.availability
     const matchesSearch = !filters.searchTerm ||
       doctor.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
       doctor.specialty.toLowerCase().includes(filters.searchTerm.toLowerCase())

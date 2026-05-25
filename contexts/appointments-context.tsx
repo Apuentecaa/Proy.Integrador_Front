@@ -1,6 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useAuth } from './auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 
 export interface Appointment {
   id: string
@@ -29,99 +31,54 @@ interface AppointmentsContextType {
   cancelAppointment: (id: string) => void
   getAppointment: (id: string) => Appointment | undefined
   getPendingPaymentAppointment: () => Appointment | undefined
+  refreshAppointments: () => Promise<void>
 }
-
-const mockAppointments: Appointment[] = [
-  {
-    id: 'apt-1',
-    specialty: 'Medicina General',
-    doctorId: 'doc-1',
-    doctorName: 'Dra. María González',
-    doctorRating: 4.8,
-    doctorExperience: '12 años',
-    location: 'Policlínico Smart Salud - Ate',
-    floor: 2,
-    room: 'Consultorio 204',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 1) // Tomorrow
-      return d.toISOString().split('T')[0]
-    })(),
-    timeSlot: '10:00',
-    status: 'confirmed',
-    paymentMethod: 'card',
-    paymentStatus: 'completed',
-    price: 50.00,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'apt-2',
-    specialty: 'Cardiología',
-    doctorId: 'doc-3',
-    doctorName: 'Dr. Luis Fernández',
-    doctorRating: 4.9,
-    doctorExperience: '18 años',
-    location: 'Policlínico Smart Salud - Ate',
-    floor: 3,
-    room: 'Consultorio 301',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 3) // In 3 days
-      return d.toISOString().split('T')[0]
-    })(),
-    timeSlot: '11:00',
-    status: 'pending_payment',
-    paymentMethod: 'transfer',
-    paymentStatus: 'pending',
-    price: 70.00,
-    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'apt-3',
-    specialty: 'Pediatría',
-    doctorId: 'doc-4',
-    doctorName: 'Dra. Sofia López',
-    doctorRating: 5.0,
-    doctorExperience: '14 años',
-    location: 'Policlínico Smart Salud - Ate',
-    floor: 1,
-    room: 'Consultorio 102',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() - 5) // 5 days ago
-      return d.toISOString().split('T')[0]
-    })(),
-    timeSlot: '09:00',
-    status: 'confirmed',
-    paymentMethod: 'card',
-    paymentStatus: 'completed',
-    price: 45.00,
-    createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-  }
-]
 
 const AppointmentsContext = createContext<AppointmentsContextType | undefined>(undefined)
 
 export function AppointmentsProvider({ children }: { children: ReactNode }) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const { user, isAuthenticated } = useAuth()
+
+  const refreshAppointments = async () => {
+    if (!isAuthenticated || user?.role !== 'patient') return;
+    
+    try {
+      const data = await fetchWithAuth('/paciente/historial');
+      
+      const mappedAppointments: Appointment[] = data.map((cita: any) => {
+        // Map backend state to frontend state
+        let status: Appointment['status'] = 'confirmed';
+        if (cita.estado === 'CANCELADO') status = 'cancelled';
+        if (cita.estado === 'PENDIENTE_PAGO') status = 'pending_payment';
+
+        return {
+          id: cita.id.toString(),
+          specialty: cita.especialidadNombre,
+          doctorId: 'mapped-doc',
+          doctorName: cita.medicoNombre,
+          doctorRating: 5.0,
+          doctorExperience: '10 años',
+          location: cita.sedeNombre,
+          floor: 1,
+          room: 'Consultorio 1',
+          date: cita.fecha,
+          timeSlot: cita.hora.substring(0, 5), // "10:30:00" -> "10:30"
+          status: status,
+          price: 150.00,
+          createdAt: cita.fecha + 'T' + cita.hora,
+        };
+      });
+
+      setAppointments(mappedAppointments);
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+    }
+  };
 
   useEffect(() => {
-    // Load appointments from localStorage
-    const savedAppointments = localStorage.getItem('smartSaludAppointments')
-    if (savedAppointments) {
-      setAppointments(JSON.parse(savedAppointments))
-    } else {
-      setAppointments(mockAppointments)
-      localStorage.setItem('smartSaludAppointments', JSON.stringify(mockAppointments))
-    }
-  }, [])
-
-  useEffect(() => {
-    // Save appointments to localStorage whenever they change
-    if (appointments.length > 0) {
-      localStorage.setItem('smartSaludAppointments', JSON.stringify(appointments))
-    }
-  }, [appointments])
+    refreshAppointments();
+  }, [isAuthenticated, user]);
 
   const addAppointment = (appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
     const newAppointment: Appointment = {
@@ -162,6 +119,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         cancelAppointment,
         getAppointment,
         getPendingPaymentAppointment,
+        refreshAppointments,
       }}
     >
       {children}

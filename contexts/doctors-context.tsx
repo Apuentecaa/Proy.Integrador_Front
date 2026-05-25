@@ -46,22 +46,40 @@ export function DoctorsProvider({ children }: { children: ReactNode }) {
   const [doctors, setDoctors] = useState<Doctor[]>([])
 
   useEffect(() => {
-    const savedDoctors = localStorage.getItem('smartSaludDoctors')
-    if (savedDoctors) {
-      setDoctors(JSON.parse(savedDoctors))
-    } else {
-      setDoctors(defaultDoctors)
-      localStorage.setItem('smartSaludDoctors', JSON.stringify(defaultDoctors))
+    const fetchDoctors = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/v1/medicos')
+        if (response.ok) {
+          const data = await response.json()
+          const mappedDoctors: Doctor[] = data.map((medico: any) => ({
+            id: medico.id.toString(),
+            name: `Dr. ${medico.nombres} ${medico.apellidos}`,
+            specialty: medico.especialidadNombre,
+            rating: 4.8, // Mocked rating for now
+            experience: `${medico.aniosExperiencia} años`,
+            availability: 'Mañana y Tarde',
+            nextSlot: 'Consultar horarios',
+            status: 'active',
+            patients: 0,
+            floor: 2,
+            room: '201',
+            price: 150
+          }))
+          setDoctors(mappedDoctors)
+        } else {
+          // Fallback to defaults if backend fails
+          setDoctors(defaultDoctors)
+        }
+      } catch (error) {
+        console.error("Error fetching doctors:", error)
+        setDoctors(defaultDoctors)
+      }
     }
+    fetchDoctors()
   }, [])
 
-  useEffect(() => {
-    if (doctors.length > 0) {
-      localStorage.setItem('smartSaludDoctors', JSON.stringify(doctors))
-    }
-  }, [doctors])
-
   const addDoctor = (doctor: Omit<Doctor, 'id'>) => {
+    // Note: Should call POST /api/v1/medicos in real implementation
     const newDoctor: Doctor = {
       ...doctor,
       id: Date.now().toString() + Math.random().toString(36).substring(7),
