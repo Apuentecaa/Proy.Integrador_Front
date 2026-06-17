@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Heart, Mail, Lock, ArrowLeft, UserCircle2, UserCog, Stethoscope } from 'lucide-react'
+import { Heart, Mail, Lock, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { ApiError } from '@/lib/api/client'
 import { toast } from 'sonner'
@@ -41,21 +41,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const fillCredentials = (role: 'admin' | 'doctor' | 'patient') => {
-    let email = ''
-    if (role === 'admin') email = 'admin@smartsalud.com'
-    if (role === 'doctor') email = 'doctor@smartsalud.com'
-    if (role === 'patient') email = 'paciente@smartsalud.com'
-
-    setFormData({
-      ...formData,
-      email: email,
-      password: 'password123'
-    })
-    
-    toast.info(`Credenciales de ${role} cargadas`)
   }
 
   return (
@@ -92,46 +77,6 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            
-            {/* Quick Login Section for Development */}
-            <div className="mb-6 p-4 bg-slate-50 border rounded-lg">
-              <p className="text-xs text-muted-foreground font-semibold uppercase mb-3 text-center tracking-wider">
-                Acceso Rápido (Demo)
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
-                  onClick={() => fillCredentials('patient')}
-                  type="button"
-                >
-                  <UserCircle2 className="w-4 h-4" />
-                  <span className="text-[10px]">Paciente</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
-                  onClick={() => fillCredentials('doctor')}
-                  type="button"
-                >
-                  <Stethoscope className="w-4 h-4" />
-                  <span className="text-[10px]">Médico</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
-                  onClick={() => fillCredentials('admin')}
-                  type="button"
-                >
-                  <UserCog className="w-4 h-4" />
-                  <span className="text-[10px]">Admin</span>
-                </Button>
-              </div>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Correo Electrónico</Label>

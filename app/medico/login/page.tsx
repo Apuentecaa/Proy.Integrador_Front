@@ -9,7 +9,7 @@ import { toast } from "sonner"
 import { ApiError } from "@/lib/api/client"
 
 // Credenciales seed del script add-medico-auth.sql (password "Password123")
-const DEMO_CREDS = [
+const CUENTAS_MEDICOS = [
   { email: "c.mendoza@vidasalud.pe",  name: "Dr. Carlos Mendoza",  spec: "Medicina General" },
   { email: "l.paredes@vidasalud.pe",  name: "Dr. Luis Paredes",    spec: "Cardiología"     },
   { email: "m.flores@vidasalud.pe",   name: "Dr. Miguel Flores",   spec: "Pediatría"       },
@@ -107,12 +107,12 @@ export default function MedicoLoginPage() {
             </button>
           </form>
 
-          {/* Credenciales demo */}
+          {/* Accesos rápidos */}
           <div className="px-6 pb-6">
             <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
-              <p className="text-xs font-bold text-emerald-700 mb-2">Credenciales de prueba (seed)</p>
+              <p className="text-xs font-bold text-emerald-700 mb-2">Cuentas de médicos</p>
               <div className="space-y-1.5">
-                {DEMO_CREDS.map(c => (
+                {CUENTAS_MEDICOS.map(c => (
                   <button
                     key={c.email}
                     type="button"

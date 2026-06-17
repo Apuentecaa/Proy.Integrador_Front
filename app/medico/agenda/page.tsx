@@ -77,7 +77,7 @@ export default function AgendaPage() {
       {usingMock && (
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-800">
           <WifiOff className="w-4 h-4 shrink-0" />
-          <span><strong>Modo demo:</strong> agenda sin conexión al backend. Inicia sesión en <a href="/medico/login" className="underline font-semibold">/medico/login</a>.</span>
+          <span><strong>Sin conexión al servidor:</strong> agenda sin datos del backend. Inicia sesión en <a href="/medico/login" className="underline font-semibold">/medico/login</a>.</span>
         </div>
       )}
 

@@ -31,7 +31,7 @@ interface DoctorPanelProps {
 }
 
 const initialDoctorAppointments = [
-  { id: "apt-1", patientName: "Paciente Demo", email: "paciente@smartsalud.com", time: "09:00 AM", status: "Confirmada", specialty: "Medicina General", age: "28 años", motive: "Chequeo anual y dolor de cabeza recurrente" },
+  { id: "apt-1", patientName: "Juan Pérez", email: "paciente@smartsalud.com", time: "09:00 AM", status: "Confirmada", specialty: "Medicina General", age: "28 años", motive: "Chequeo anual y dolor de cabeza recurrente" },
   { id: "apt-d1", patientName: "Juan Pérez", email: "juan.perez@gmail.com", time: "10:30 AM", status: "Confirmada", specialty: "Medicina General", age: "45 años", motive: "Control de presión arterial alta" },
   { id: "apt-d2", patientName: "María Silva", email: "maria.silva@outlook.com", time: "11:45 AM", status: "Pendiente de Pago", specialty: "Medicina General", age: "32 años", motive: "Dolor estomacal e indigestión" },
   { id: "apt-d3", patientName: "Pedro Gómez", email: "pedro.gomez@yahoo.com", time: "02:00 PM", status: "Atendido", specialty: "Medicina General", age: "50 años", motive: "Revisión de resultados de perfil lipídico" }
@@ -333,7 +333,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
                   PD
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-gray-900">Paciente Demo</h4>
+                  <h4 className="font-bold text-gray-900">Juan Pérez</h4>
                   <p className="text-xs text-gray-500">paciente@smartsalud.com • DNI: 72123456 • 28 años</p>
                 </div>
                 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Paciente Activo</Badge>
