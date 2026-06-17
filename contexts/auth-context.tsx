@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 
-export type Role = 'patient' | 'doctor' | 'admin'
+export type Role = 'patient' | 'doctor' | 'receptionist' | 'admin' | 'super_admin'
 
 export interface User {
   id: string
@@ -16,7 +16,7 @@ export interface User {
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
-  login: (email: string, password: string, role?: Role) => Promise<void>
+  login: (email: string, password: string, role?: Role) => Promise<Role | void>
   register: (name: string, email: string, phone: string, password: string) => Promise<void>
   logout: () => void
 }
@@ -37,67 +37,100 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string, role: Role = 'patient') => {
     try {
-      // 1. Conexión Real al Backend de Spring Boot mediante REST API
-      const response = await fetch('http://localhost:8080/api/auth/login', {
+      // Conexión al Backend de Spring Boot mediante REST API
+      const response = await fetch('http://localhost:8080/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        // Mapeamos el "email" del front al "username" que espera el LoginRequest en Java
-        body: JSON.stringify({
-          username: email,
-          password: password,
-        }),
+        body: JSON.stringify({ email, password })
       })
 
-      // 2. Si las credenciales son incorrectas (401 u otro error HTTP)
       if (!response.ok) {
         throw new Error('Credenciales inválidas')
       }
 
-      const data = await response.json() // El backend retorna {"message": "Login exitoso", "status": "success"}
-
-      // 3. Determinar el rol para mantener la experiencia visual del front
-      let assignedRole: Role = role
-      if (email === 'admin@smartsalud.com') assignedRole = 'admin'
-      else if (email === 'doctor@smartsalud.com') assignedRole = 'doctor'
-      else if (email === 'paciente@smartsalud.com') assignedRole = 'patient'
-
-      // Construimos el objeto del usuario usando la respuesta exitosa
-      const sessionUser: User = {
-        id: Date.now().toString(), // Eventualmente lo reemplazarás por el id real que traiga tu token/backend
-        name: assignedRole === 'admin' ? 'Administrador' : assignedRole === 'doctor' ? 'Dr. Médico' : 'Paciente Demo',
-        email: email,
-        phone: '+51 987 654 321',
-        role: assignedRole,
+      const data = await response.json()
+      
+      // Construimos el objeto del usuario con los datos del backend
+      const realUser: User = {
+        id: data.id?.toString() || Date.now().toString(),
+        name: data.nombre || (email === 'admin@smartsalud.com' ? 'Administrador' : 'Usuario'),
+        email: data.email || email,
+        phone: data.telefono || '+51 987 654 321',
+        role: (data.role as Role) || role || 'patient'
       }
-
-      // 4. Guardamos la sesión localmente
-      setUser(sessionUser)
-      localStorage.setItem('smartSaludUser', JSON.stringify(sessionUser))
-
+      
+      setUser(realUser)
+      localStorage.setItem('smartSaludUser', JSON.stringify(realUser))
+      if (data.token) {
+        localStorage.setItem('smartSaludToken', data.token)
+      }
+      
+      // Determinamos el rol para redirección
+      const userRole = realUser.role
+      
+      // Redirigir según el rol
+      if (userRole === 'admin' || userRole === 'super_admin') {
+        router.push('/dashboard/admin')
+      } else if (userRole === 'doctor') {
+        router.push('/dashboard/doctor')
+      } else if (userRole === 'receptionist') {
+        router.push('/dashboard/receptionist')
+      } else {
+        router.push('/dashboard/patient')
+      }
+      
+      return userRole
+      
     } catch (error) {
       console.error('Error durante el proceso de login:', error)
-      throw error // Lanzamos el error para que el 'toast.error' de la UI lo capture y lo muestre
+      throw error
     }
   }
 
   const register = async (name: string, email: string, phone: string, password: string) => {
-    // Simulación de registro - por defecto se registran pacientes
-    const newUser: User = {
-      id: Date.now().toString(),
-      name,
-      email,
-      phone,
-      role: 'patient'
+    try {
+      const response = await fetch('http://localhost:8080/api/v1/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, phone, password, role: 'patient' })
+      })
+
+      if (!response.ok) {
+        throw new Error('Error en el registro')
+      }
+
+      const data = await response.json()
+      
+      const newUser: User = {
+        id: data.id?.toString() || Date.now().toString(),
+        name: data.nombre || name,
+        email: data.email || email,
+        phone: data.telefono || phone,
+        role: 'patient'
+      }
+      
+      setUser(newUser)
+      localStorage.setItem('smartSaludUser', JSON.stringify(newUser))
+      if (data.token) {
+        localStorage.setItem('smartSaludToken', data.token)
+      }
+      
+      router.push('/dashboard/patient')
+      
+    } catch (error) {
+      console.error('Error en registro:', error)
+      throw error
     }
-    setUser(newUser)
-    localStorage.setItem('smartSaludUser', JSON.stringify(newUser))
   }
 
   const logout = () => {
     setUser(null)
     localStorage.removeItem('smartSaludUser')
+    localStorage.removeItem('smartSaludToken')
     router.push('/login')
   }
 
