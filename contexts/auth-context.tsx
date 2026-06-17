@@ -36,25 +36,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string, role: Role = 'patient') => {
-    // Simulación de login - en producción esto se conectaría a un backend
-    // Aquí usamos el rol pasado o 'patient' por defecto. Para los botones hardcodeados, pasaremos el rol explícitamente.
-    
-    // Determinamos el rol basado en el email si es uno de los hardcodeados
-    let assignedRole: Role = role;
-    if (email === 'admin@smartsalud.com') assignedRole = 'admin';
-    else if (email === 'doctor@smartsalud.com') assignedRole = 'doctor';
-    else if (email === 'paciente@smartsalud.com') assignedRole = 'patient';
+    try {
+      // 1. Conexión Real al Backend de Spring Boot mediante REST API
+      const response = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Mapeamos el "email" del front al "username" que espera el LoginRequest en Java
+        body: JSON.stringify({
+          username: email,
+          password: password,
+        }),
+      })
 
-    const mockUser: User = {
-      id: Date.now().toString(),
-      name: assignedRole === 'admin' ? 'Administrador' : assignedRole === 'doctor' ? 'Dr. Médico' : 'Paciente Demo',
-      email: email,
-      phone: '+51 987 654 321',
-      role: assignedRole
+      // 2. Si las credenciales son incorrectas (401 u otro error HTTP)
+      if (!response.ok) {
+        throw new Error('Credenciales inválidas')
+      }
+
+      const data = await response.json() // El backend retorna {"message": "Login exitoso", "status": "success"}
+
+      // 3. Determinar el rol para mantener la experiencia visual del front
+      let assignedRole: Role = role
+      if (email === 'admin@smartsalud.com') assignedRole = 'admin'
+      else if (email === 'doctor@smartsalud.com') assignedRole = 'doctor'
+      else if (email === 'paciente@smartsalud.com') assignedRole = 'patient'
+
+      // Construimos el objeto del usuario usando la respuesta exitosa
+      const sessionUser: User = {
+        id: Date.now().toString(), // Eventualmente lo reemplazarás por el id real que traiga tu token/backend
+        name: assignedRole === 'admin' ? 'Administrador' : assignedRole === 'doctor' ? 'Dr. Médico' : 'Paciente Demo',
+        email: email,
+        phone: '+51 987 654 321',
+        role: assignedRole,
+      }
+
+      // 4. Guardamos la sesión localmente
+      setUser(sessionUser)
+      localStorage.setItem('smartSaludUser', JSON.stringify(sessionUser))
+
+    } catch (error) {
+      console.error('Error durante el proceso de login:', error)
+      throw error // Lanzamos el error para que el 'toast.error' de la UI lo capture y lo muestre
     }
-    
-    setUser(mockUser)
-    localStorage.setItem('smartSaludUser', JSON.stringify(mockUser))
   }
 
   const register = async (name: string, email: string, phone: string, password: string) => {
