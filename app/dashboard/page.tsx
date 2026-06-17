@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,13 +19,18 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import Link from 'next/link'
 import AdminPanel from '@/components/admin-panel'
-import DoctorPanel from '@/components/doctor-panel'
 
 export default function DashboardPage() {
   const { user, logout } = useAuth()
   const router = useRouter()
-  const { appointments } = useAppointments()
+  const { appointments, reload } = useAppointments()
   const { getPatientDocuments } = useDocuments()
+
+  // Refresca las citas desde el backend al entrar (refleja pagos recién hechos)
+  useEffect(() => {
+    reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Dynamic dashboard routing based on role
   if (user?.role === 'admin') {
@@ -46,9 +52,12 @@ export default function DashboardPage() {
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  const pendingPayments = appointments.filter(
-    (apt) => apt.status === 'pending_payment' && apt.paymentMethod === 'transfer'
-  ).length
+  // Citas no pagadas (estado RESERVADO en el backend) = pagos pendientes.
+  // Estas NO aparecen en "Próximas Citas" hasta que se paguen (pasan a CONFIRMADO).
+  const pendingPaymentAppointments = appointments.filter(
+    (apt) => apt.status === 'pending_payment'
+  )
+  const pendingPayments = pendingPaymentAppointments.length
 
   const patientDocuments = user ? getPatientDocuments(user.email) : []
 
@@ -65,7 +74,7 @@ export default function DashboardPage() {
       value: pendingPayments.toString(),
       icon: CreditCard,
       color: 'from-orange-500 to-orange-600',
-      link: '/dashboard/citas',
+      link: '/dashboard/pagos',
     },
     {
       title: 'Mis Documentos',
@@ -238,7 +247,7 @@ export default function DashboardPage() {
         <CardContent>
           <div className="grid sm:grid-cols-2 gap-4">
             {[
-              { label: 'Reservar Cita', icon: Calendar, link: '/reservar' },
+              { label: 'Pagos Pendientes', icon: CreditCard, link: '/dashboard/pagos' },
               { label: 'Mis Documentos', icon: FileText, link: '/dashboard/documentos' },
             ].map((action) => {
               const Icon = action.icon

@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAppointments } from '@/contexts/appointments-context'
 import { format } from 'date-fns'
@@ -27,10 +27,16 @@ import { es } from 'date-fns/locale'
 import { useRouter } from 'next/navigation'
 
 export default function MyAppointmentsPage() {
-  const { appointments, cancelAppointment } = useAppointments()
+  const { appointments, cancelAppointment, reload } = useAppointments()
   const router = useRouter()
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null)
+
+  // Refresca al entrar para reflejar pagos y nuevas citas
+  useEffect(() => {
+    reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleReschedule = (appointmentId: string) => {
     toast.info('Función en desarrollo', {
@@ -88,7 +94,7 @@ export default function MyAppointmentsPage() {
   )
 
   const pendingPaymentAppointments = activeAppointments.filter(
-    (apt) => apt.status === 'pending_payment' && apt.paymentMethod === 'transfer'
+    (apt) => apt.status === 'pending_payment'
   )
   const confirmedAppointments = activeAppointments.filter((apt) => apt.status === 'confirmed')
   const pastAppointments = appointments.filter(
@@ -125,11 +131,11 @@ export default function MyAppointmentsPage() {
         <div className="space-y-4">
           <h3 className="text-lg font-medium flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-yellow-600" />
-            Citas Pendientes de Verificación
+            Citas Pendientes de Pago
           </h3>
           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-900">
-              <strong>Transferencias bancarias pendientes de verificación:</strong> Tu cita será confirmada una vez que el personal administrativo verifique el pago.
+              <strong>Estas citas aún no están pagadas.</strong> Págalas para confirmarlas; hasta entonces no aparecen en tus próximas citas.
             </p>
           </div>
           <div className="grid gap-4">
@@ -180,9 +186,14 @@ export default function MyAppointmentsPage() {
                         <DollarSign className="h-4 w-4 text-yellow-600" />
                         <span className="font-semibold text-yellow-900">S/ {appointment.price.toFixed(2)}</span>
                       </div>
-                      <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300">
-                        Esperando verificación
-                      </Badge>
+                      <Button
+                        onClick={() => router.push('/dashboard/pagos')}
+                        className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white"
+                        size="sm"
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Pagar
+                      </Button>
                     </div>
                   </div>
                 </div>
