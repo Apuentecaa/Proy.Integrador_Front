@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Heart, User, Mail, Lock, Phone, ArrowLeft } from 'lucide-react'
+import { Heart, User, Mail, Lock, Phone, ArrowLeft, CreditCard } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
+import { ApiError } from '@/lib/api/client'
 import { toast } from 'sonner'
 
 export default function RegisterPage() {
@@ -17,6 +18,7 @@ export default function RegisterPage() {
   const { register } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
+    dni: '',
     email: '',
     phone: '',
     password: '',
@@ -38,18 +40,22 @@ export default function RegisterPage() {
       return
     }
 
+    // Separar nombre completo en nombres y apellidos (primer espacio)
+    const partes = formData.name.trim().split(/\s+/)
+    const nombres = partes[0] ?? ''
+    const apellidos = partes.slice(1).join(' ') || nombres
+
     setIsLoading(true)
 
     try {
-      await register(formData.name, formData.email, formData.phone, formData.password)
+      await register(nombres, apellidos, formData.dni, formData.email, formData.phone, formData.password)
       toast.success('¡Cuenta creada exitosamente!', {
         description: 'Bienvenido a Smart Salud',
       })
       router.push('/dashboard')
     } catch (error) {
-      toast.error('Error al crear la cuenta', {
-        description: 'Por favor intenta nuevamente',
-      })
+      const msg = error instanceof ApiError ? error.message : 'Por favor intenta nuevamente'
+      toast.error('Error al crear la cuenta', { description: msg })
     } finally {
       setIsLoading(false)
     }
@@ -99,6 +105,22 @@ export default function RegisterPage() {
                     placeholder="Juan Pérez"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="dni">DNI</Label>
+                <div className="relative">
+                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="dni"
+                    placeholder="12345678"
+                    maxLength={15}
+                    value={formData.dni}
+                    onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
                     className="pl-10"
                     required
                   />

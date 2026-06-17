@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Heart, Mail, Lock, ArrowLeft, UserCircle2, UserCog, Stethoscope } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
+import { ApiError } from '@/lib/api/client'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
@@ -33,9 +34,10 @@ export default function LoginPage() {
       })
       router.push('/dashboard')
     } catch (error) {
-      toast.error('Error al iniciar sesión', {
-        description: 'Verifica tus credenciales e intenta nuevamente',
-      })
+      const msg = error instanceof ApiError
+        ? error.message
+        : 'Verifica tus credenciales e intenta nuevamente'
+      toast.error('Error al iniciar sesión', { description: msg })
     } finally {
       setIsLoading(false)
     }

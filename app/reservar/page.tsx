@@ -99,7 +99,7 @@ function BookingContent() {
     }
   }
 
-  const handleRegisterAppointment = () => {
+  const handleRegisterAppointment = async () => {
     if (!selectedDate || !bookingData.specialty || !bookingData.doctor) {
       toast.error('Faltan datos para registrar la cita')
       return
@@ -112,23 +112,32 @@ function BookingContent() {
       return
     }
 
-    const newAppointment = addAppointment({
-      specialty: bookingData.specialty,
-      doctorId: bookingData.doctor,
-      doctorName: selectedDoctor.name,
-      doctorRating: selectedDoctor.rating,
-      doctorExperience: selectedDoctor.experience,
-      location: 'Policlínico Smart Salud - Sede Ate',
-      floor: selectedDoctor.floor,
-      room: selectedDoctor.room,
-      date: selectedDate.toISOString(),
-      timeSlot: bookingData.timeSlot,
-      status: 'pending_payment',
-      price: selectedDoctor.price,
-    })
+    try {
+      const newAppointment = await addAppointment({
+        specialty: bookingData.specialty,
+        doctorId: bookingData.doctor,
+        doctorName: selectedDoctor.name,
+        doctorRating: selectedDoctor.rating,
+        doctorExperience: selectedDoctor.experience,
+        location: 'Policlínico Smart Salud - Sede Ate',
+        floor: selectedDoctor.floor,
+        room: selectedDoctor.room,
+        date: selectedDate.toISOString(),
+        timeSlot: bookingData.timeSlot,
+        status: 'pending_payment',
+        price: selectedDoctor.price,
+        // IDs reales del backend para que la cita se guarde en la BD
+        backendMedicoId: selectedDoctor.backendId,
+        backendSedeId: 1,
+      })
 
-    setRegisteredAppointmentId(newAppointment.id)
-    setCurrentStep(4)
+      setRegisteredAppointmentId(newAppointment.id)
+      setCurrentStep(4)
+      toast.success('Cita registrada', { description: 'Procede con el pago para confirmarla' })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo registrar la cita'
+      toast.error('Error al reservar', { description: msg })
+    }
   }
 
   const selectedDoctor = bookingData.doctor ? getDoctor(bookingData.doctor) : null

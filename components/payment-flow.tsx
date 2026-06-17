@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle, Loader2, Download, Calendar as CalendarIcon, Cre
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
+import { procesarPago } from '@/lib/api/pago'
 
 type PaymentState = 'form' | 'processing' | 'success' | 'error'
 
@@ -28,16 +29,26 @@ export function PaymentFlow({ amount, appointmentDetails, onComplete }: PaymentF
   const [cvv, setCvv] = useState('')
   const router = useRouter()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPaymentState('processing')
 
-    // Simulate payment processing
-    setTimeout(() => {
-      // 90% success rate
-      const success = Math.random() > 0.1
-      setPaymentState(success ? 'success' : 'error')
-    }, 2500)
+    const citaId = Number(appointmentDetails.id)
+    try {
+      if (!Number.isNaN(citaId)) {
+        // Pago real contra el backend (tarjeta de crédito se aprueba inmediatamente)
+        await procesarPago({
+          citaId,
+          monto: amount,
+          metodo: 'TARJETA_CREDITO',
+        })
+      }
+      setPaymentState('success')
+    } catch (err) {
+      console.warn('Error procesando pago en backend:', err)
+      // Fallback: si el backend falla, mostramos error para reintentar
+      setPaymentState('error')
+    }
   }
 
   const handleRetry = () => {

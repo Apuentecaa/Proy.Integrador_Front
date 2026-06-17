@@ -1,6 +1,14 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import { useAuth } from './auth-context'
+import {
+  listarCitasPaciente,
+  crearCita,
+  cancelarCita as apiCancelarCita,
+  type CitaPaciente,
+  type CrearCitaRequest,
+} from '@/lib/api/cita'
 
 export interface Appointment {
   id: string
@@ -12,156 +20,152 @@ export interface Appointment {
   location: string
   floor: number
   room: string
-  date: string // ISO string
-  timeSlot: string
+  date: string // ISO date YYYY-MM-DD
+  timeSlot: string // HH:mm
   status: 'pending_payment' | 'confirmed' | 'cancelled'
   paymentMethod?: string
   paymentStatus?: 'pending' | 'completed' | 'failed'
   price: number
-  createdAt: string // ISO string
+  createdAt: string
   reminderSent?: boolean
+  // Para llamar a la API real
+  backendId?: number
+  backendMedicoId?: number
+  backendSedeId?: number
 }
 
 interface AppointmentsContextType {
   appointments: Appointment[]
-  addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt'>) => Appointment
+  loading: boolean
+  usingMock: boolean
+  addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt'>) => Promise<Appointment>
   updateAppointment: (id: string, updates: Partial<Appointment>) => void
-  cancelAppointment: (id: string) => void
+  cancelAppointment: (id: string, motivo?: string) => Promise<void>
   getAppointment: (id: string) => Appointment | undefined
   getPendingPaymentAppointment: () => Appointment | undefined
+  reload: () => Promise<void>
 }
-
-const mockAppointments: Appointment[] = [
-  {
-    id: 'apt-1',
-    specialty: 'Medicina General',
-    doctorId: 'doc-1',
-    doctorName: 'Dra. María González',
-    doctorRating: 4.8,
-    doctorExperience: '12 años',
-    location: 'Policlínico Smart Salud - Ate',
-    floor: 2,
-    room: 'Consultorio 204',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 1) // Tomorrow
-      return d.toISOString().split('T')[0]
-    })(),
-    timeSlot: '10:00',
-    status: 'confirmed',
-    paymentMethod: 'card',
-    paymentStatus: 'completed',
-    price: 50.00,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'apt-2',
-    specialty: 'Cardiología',
-    doctorId: 'doc-3',
-    doctorName: 'Dr. Luis Fernández',
-    doctorRating: 4.9,
-    doctorExperience: '18 años',
-    location: 'Policlínico Smart Salud - Ate',
-    floor: 3,
-    room: 'Consultorio 301',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 3) // In 3 days
-      return d.toISOString().split('T')[0]
-    })(),
-    timeSlot: '11:00',
-    status: 'pending_payment',
-    paymentMethod: 'transfer',
-    paymentStatus: 'pending',
-    price: 70.00,
-    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'apt-3',
-    specialty: 'Pediatría',
-    doctorId: 'doc-4',
-    doctorName: 'Dra. Sofia López',
-    doctorRating: 5.0,
-    doctorExperience: '14 años',
-    location: 'Policlínico Smart Salud - Ate',
-    floor: 1,
-    room: 'Consultorio 102',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() - 5) // 5 days ago
-      return d.toISOString().split('T')[0]
-    })(),
-    timeSlot: '09:00',
-    status: 'confirmed',
-    paymentMethod: 'card',
-    paymentStatus: 'completed',
-    price: 45.00,
-    createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-  }
-]
 
 const AppointmentsContext = createContext<AppointmentsContextType | undefined>(undefined)
 
+// Mapeo del estado backend → frontend
+function mapEstado(estado: CitaPaciente["estado"]): Appointment["status"] {
+  switch (estado) {
+    case 'RESERVADO': return 'pending_payment'
+    case 'CONFIRMADO':
+    case 'ATENDIDO': return 'confirmed'
+    case 'CANCELADO':
+    case 'NO_ASISTIO': return 'cancelled'
+  }
+}
+
+function mapCitaToAppointment(c: CitaPaciente): Appointment {
+  return {
+    id: String(c.id),
+    specialty: c.especialidad,
+    doctorId: String(c.medicoId),
+    doctorName: `Dr. ${c.medicoNombres} ${c.medicoApellidos}`,
+    doctorRating: 4.8,
+    doctorExperience: '10+ años',
+    location: c.sedeNombre ?? 'Sede Central',
+    floor: 1,
+    room: 'C-101',
+    date: c.fecha,
+    timeSlot: c.hora.substring(0, 5),
+    status: mapEstado(c.estado),
+    price: 80,
+    createdAt: c.fechaCreacion ?? new Date().toISOString(),
+    backendId: c.id,
+    backendMedicoId: c.medicoId,
+    backendSedeId: c.sedeId,
+  }
+}
+
 export function AppointmentsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(false)
+  const [usingMock, setUsingMock] = useState(false)
+
+  const fetchData = useCallback(async () => {
+    if (!user?.pacienteId) {
+      setAppointments([])
+      return
+    }
+    setLoading(true)
+    try {
+      const citas = await listarCitasPaciente(user.pacienteId)
+      setAppointments(citas.map(mapCitaToAppointment))
+      setUsingMock(false)
+    } catch (err) {
+      console.warn('Backend no disponible para citas, lista vacía', err)
+      setAppointments([])
+      setUsingMock(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.pacienteId])
 
   useEffect(() => {
-    // Load appointments from localStorage
-    const savedAppointments = localStorage.getItem('smartSaludAppointments')
-    if (savedAppointments) {
-      setAppointments(JSON.parse(savedAppointments))
-    } else {
-      setAppointments(mockAppointments)
-      localStorage.setItem('smartSaludAppointments', JSON.stringify(mockAppointments))
-    }
-  }, [])
+    fetchData()
+  }, [fetchData])
 
-  useEffect(() => {
-    // Save appointments to localStorage whenever they change
-    if (appointments.length > 0) {
-      localStorage.setItem('smartSaludAppointments', JSON.stringify(appointments))
+  const addAppointment = async (a: Omit<Appointment, 'id' | 'createdAt'>): Promise<Appointment> => {
+    if (!user?.pacienteId) {
+      throw new Error('Debes iniciar sesión como paciente para reservar')
     }
-  }, [appointments])
-
-  const addAppointment = (appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
-    const newAppointment: Appointment = {
-      ...appointment,
-      id: Date.now().toString() + Math.random().toString(36).substring(7),
-      createdAt: new Date().toISOString(),
+    const medicoId = a.backendMedicoId ?? Number(a.doctorId)
+    if (Number.isNaN(medicoId)) {
+      throw new Error('El médico seleccionado no tiene un ID válido del backend')
     }
-    setAppointments((prev) => [...prev, newAppointment])
-    return newAppointment
+    const req: CrearCitaRequest = {
+      pacienteId: user.pacienteId,
+      medicoId,
+      sedeId: a.backendSedeId ?? 1, // Default Sede Central
+      fecha: a.date.length > 10 ? a.date.substring(0, 10) : a.date,
+      hora: a.timeSlot.length === 5 ? `${a.timeSlot}:00` : a.timeSlot,
+      tipoConsulta: 'PRIMERA_VEZ',
+      modalidad: 'PRESENCIAL',
+    }
+    const cita = await crearCita(req)
+    const mapped = mapCitaToAppointment(cita)
+    setAppointments((prev) => [mapped, ...prev])
+    return mapped
   }
 
   const updateAppointment = (id: string, updates: Partial<Appointment>) => {
-    setAppointments((prev) =>
-      prev.map((apt) => (apt.id === id ? { ...apt, ...updates } : apt))
-    )
+    setAppointments((prev) => prev.map((apt) => (apt.id === id ? { ...apt, ...updates } : apt)))
   }
 
-  const cancelAppointment = (id: string) => {
+  const cancelAppointment = async (id: string, motivo = 'Cancelada por el paciente') => {
+    const apt = appointments.find((a) => a.id === id)
+    if (apt?.backendId) {
+      try {
+        await apiCancelarCita(apt.backendId, motivo)
+      } catch (err) {
+        console.warn('Error al cancelar cita en backend, marca local solamente', err)
+      }
+    }
     setAppointments((prev) =>
       prev.map((apt) => (apt.id === id ? { ...apt, status: 'cancelled' as const } : apt))
     )
   }
 
-  const getAppointment = (id: string) => {
-    return appointments.find((apt) => apt.id === id)
-  }
-
-  const getPendingPaymentAppointment = () => {
-    return appointments.find((apt) => apt.status === 'pending_payment')
-  }
+  const getAppointment = (id: string) => appointments.find((apt) => apt.id === id)
+  const getPendingPaymentAppointment = () => appointments.find((apt) => apt.status === 'pending_payment')
 
   return (
     <AppointmentsContext.Provider
       value={{
         appointments,
+        loading,
+        usingMock,
         addAppointment,
         updateAppointment,
         cancelAppointment,
         getAppointment,
         getPendingPaymentAppointment,
+        reload: fetchData,
       }}
     >
       {children}

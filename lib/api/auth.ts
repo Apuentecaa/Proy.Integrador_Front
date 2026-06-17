@@ -1,6 +1,8 @@
 // lib/api/auth.ts
 import { api, tokenStorage } from "./client"
 
+// ============== MEDICO ==============
+
 export interface MedicoLoginResponse {
   accessToken: string
   refreshToken: string
@@ -45,4 +47,58 @@ export async function getMedicoMe(): Promise<MedicoMeResponse> {
 
 export function logoutMedico() {
   tokenStorage.clear()
+}
+
+// ============== PACIENTE ==============
+
+export interface AuthResponse {
+  accessToken: string
+  refreshToken: string
+  tipo: string
+  expiresIn: number
+}
+
+export interface MeResponse {
+  id: number
+  email: string
+  nombres: string
+  apellidos: string
+  dni: string
+  telefono: string | null
+  roles: string[]
+}
+
+export interface RegisterRequest {
+  dni: string
+  nombres: string
+  apellidos: string
+  email: string
+  telefono: string
+  password: string
+}
+
+export async function loginPaciente(email: string, password: string): Promise<AuthResponse> {
+  const res = await api<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: { email, password },
+    auth: false,
+  })
+  tokenStorage.set(res.accessToken)
+  tokenStorage.setRefresh(res.refreshToken)
+  return res
+}
+
+export async function registerPaciente(data: RegisterRequest): Promise<AuthResponse> {
+  const res = await api<AuthResponse>("/api/auth/register", {
+    method: "POST",
+    body: data,
+    auth: false,
+  })
+  tokenStorage.set(res.accessToken)
+  tokenStorage.setRefresh(res.refreshToken)
+  return res
+}
+
+export async function getPacienteMe(): Promise<MeResponse> {
+  return api<MeResponse>("/api/auth/me")
 }
