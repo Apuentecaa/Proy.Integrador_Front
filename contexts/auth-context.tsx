@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   login: (email: string, password: string, role?: Role) => Promise<Role | void>
-  register: (name: string, email: string, phone: string, password: string) => Promise<void>
+  register: (name: string, apellidos: string, email: string, phone: string, dni: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -68,17 +68,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const register = async (name: string, email: string, phone: string, password: string) => {
-    // Simulación de registro - por defecto se registran pacientes
-    const newUser: User = {
-      id: Date.now().toString(),
-      name,
-      email,
-      phone,
-      role: 'patient'
+  const register = async (name: string, apellidos: string, email: string, phone: string, dni: string, password: string) => {
+    try {
+      const response = await fetch('http://localhost:8080/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombres: name, apellidos, email, telefono: phone, dni, password })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al registrar usuario');
+      }
+
+      const data = await response.json();
+      
+      const newUser: User = {
+        id: data.id.toString(),
+        name: data.nombre,
+        email: data.email,
+        phone: phone,
+        role: data.role as Role || 'patient'
+      }
+      
+      setUser(newUser)
+      localStorage.setItem('smartSaludUser', JSON.stringify(newUser))
+      localStorage.setItem('smartSaludToken', data.token)
+    } catch (error) {
+      console.error("Registro falló:", error);
+      throw error;
     }
-    setUser(newUser)
-    localStorage.setItem('smartSaludUser', JSON.stringify(newUser))
   }
 
   const logout = () => {

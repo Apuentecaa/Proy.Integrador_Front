@@ -17,8 +17,10 @@ export default function RegisterPage() {
   const { register } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
+    apellidos: '',
     email: '',
     phone: '',
+    dni: '',
     password: '',
     confirmPassword: '',
     acceptTerms: false,
@@ -41,7 +43,7 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      await register(formData.name, formData.email, formData.phone, formData.password)
+      await register(formData.name, formData.apellidos, formData.email, formData.phone, formData.dni, formData.password)
       toast.success('¡Cuenta creada exitosamente!', {
         description: 'Bienvenido a Smart Salud',
       })
@@ -90,16 +92,49 @@ export default function RegisterPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nombres</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="name"
+                      placeholder="Juan"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="apellidos">Apellidos</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="apellidos"
+                      placeholder="Pérez"
+                      value={formData.apellidos}
+                      onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="name">Nombre Completo</Label>
+                <Label htmlFor="dni">DNI</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="name"
-                    placeholder="Juan Pérez"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    id="dni"
+                    placeholder="12345678"
+                    value={formData.dni}
+                    onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
                     className="pl-10"
+                    maxLength={8}
                     required
                   />
                 </div>

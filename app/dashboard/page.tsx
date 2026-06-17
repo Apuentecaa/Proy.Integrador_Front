@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from 'react'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,9 +28,15 @@ export default function DashboardPage() {
   const { appointments } = useAppointments()
   const { getPatientDocuments } = useDocuments()
 
+  useEffect(() => {
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      router.push('/admin')
+    }
+  }, [user, router])
+
   // Dynamic dashboard routing based on role
-  if (user?.role === 'admin') {
-    return <AdminPanel onBack={() => logout()} />
+  if (user?.role === 'admin' || user?.role === 'super_admin') {
+    return null // Return nothing while redirecting
   }
 
   if (user?.role === 'doctor') {

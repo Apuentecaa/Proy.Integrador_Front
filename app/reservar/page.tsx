@@ -154,6 +154,7 @@ function BookingContent() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          medicoId: parseInt(bookingData.doctor),
           horarioId: bookingData.horarioId,
           fecha: format(selectedDate!, 'yyyy-MM-dd'),
           hora: bookingData.timeSlot + ":00",
