@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Calendar } from '@/components/ui/calendar'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
@@ -53,6 +54,7 @@ function BookingContent() {
     timeSlot: '',
     horarioId: 0,
     paymentMethod: '',
+      isExtra: false,
   })
 
   // Data from API
@@ -462,11 +464,28 @@ function BookingContent() {
                 </div>
 
                 <div className="border-t border-gray-100 pt-6 mt-6">
-                  <div className="flex justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl">
-                    <span className="text-lg font-medium text-gray-700">Costo de la Consulta:</span>
-                    <span className="text-3xl font-bold text-emerald-600">
-                      S/ 150.00
-                    </span>
+                  <div className="flex flex-col gap-4 mb-6 bg-gray-50 p-4 rounded-xl">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="isExtra" 
+                        checked={bookingData.isExtra} 
+                        onCheckedChange={(checked) => setBookingData({...bookingData, isExtra: checked === true})} 
+                      />
+                      <label htmlFor="isExtra" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-700">
+                        Marcar como Cita Extra (fuera de horario / urgente) + S/ 50.00
+                      </label>
+                    </div>
+                    {bookingData.isExtra && (
+                      <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                        Nota: Las citas extras no son reembolsables en caso de cancelación.
+                      </p>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                      <span className="text-lg font-medium text-gray-700">Costo Total:</span>
+                      <span className="text-3xl font-bold text-emerald-600">
+                        S/ {bookingData.isExtra ? '200.00' : '150.00'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Edit buttons */}
@@ -494,7 +513,7 @@ function BookingContent() {
           {/* Step 4: Payment Component */}
           {currentStep === 4 && selectedDate && selectedDoctor && (
             <PaymentFlow 
-              amount={150.00} 
+              amount={bookingData.isExtra ? 200.00 : 150.00} 
               appointmentDetails={{
                 id: registeredAppointmentId || 'NUEVA',
                 doctor: selectedDoctor.nombres + " " + selectedDoctor.apellidos,

@@ -52,42 +52,59 @@ interface Medico {
   estado?: string
 }
 
-interface Cita {
-  id: string
-  paciente: string
-  medico: string
-  especialidad: string
-  fecha: string
-  hora: string
-  estado: "confirmada" | "pendiente" | "cancelada"
-  sede: string
+interface Especialidad {
+  id: number
+  nombre: string
+  descripcion: string
+  iconoUrl?: string
 }
 
-const initialMedicos: Medico[] = [
-  { id: 1, nombre: "Dr. Carlos Martinez", especialidad: "Cardiologia", sede: "San Isidro", rating: 4.9, pacientes: 1250, estado: "activo" },
-  { id: 2, nombre: "Dra. Maria Garcia", especialidad: "Pediatria", sede: "Miraflores", rating: 4.8, pacientes: 980, estado: "activo" },
-  { id: 3, nombre: "Dr. Jose Rodriguez", especialidad: "Neurologia", sede: "San Isidro", rating: 4.7, pacientes: 750, estado: "activo" },
-  { id: 4, nombre: "Dra. Ana Torres", especialidad: "Medicina General", sede: "Surco", rating: 4.9, pacientes: 1500, estado: "activo" },
-  { id: 5, nombre: "Dr. Luis Fernandez", especialidad: "Traumatologia", sede: "San Isidro", rating: 4.6, pacientes: 620, estado: "inactivo" },
-]
+interface Sede {
+  id: number
+  nombre: string
+  direccion: string
+  distrito: string
+  ciudad: string
+}
 
-const initialCitas: Cita[] = [
-  { id: "CIT-001", paciente: "Juan Perez", medico: "Dr. Carlos Martinez", especialidad: "Cardiologia", fecha: "2024-01-15", hora: "09:00", estado: "confirmada", sede: "San Isidro" },
-  { id: "CIT-002", paciente: "Maria Lopez", medico: "Dra. Maria Garcia", especialidad: "Pediatria", fecha: "2024-01-15", hora: "10:30", estado: "pendiente", sede: "Miraflores" },
-  { id: "CIT-003", paciente: "Carlos Ruiz", medico: "Dr. Jose Rodriguez", especialidad: "Neurologia", fecha: "2024-01-15", hora: "11:00", estado: "confirmada", sede: "San Isidro" },
-  { id: "CIT-004", paciente: "Ana Sanchez", medico: "Dra. Ana Torres", especialidad: "Medicina General", fecha: "2024-01-16", hora: "08:00", estado: "cancelada", sede: "Surco" },
-  { id: "CIT-005", paciente: "Pedro Garcia", medico: "Dr. Carlos Martinez", especialidad: "Cardiologia", fecha: "2024-01-16", hora: "14:00", estado: "pendiente", sede: "San Isidro" },
-]
+interface Cita {
+  id: number
+  pacienteNombre: string
+  medicoNombre: string
+  especialidadNombre: string
+  fecha: string
+  hora: string
+  estado: string
+  sedeNombre: string
+}
+
+const initialMedicos: Medico[] = []
+const initialCitas: Cita[] = []
 
 const especialidades = ["Cardiologia", "Neurologia", "Oftalmologia", "Traumatologia", "Pediatria", "Medicina General", "Medicina Interna", "Dermatologia"]
 const sedes = ["San Isidro", "Miraflores", "Surco"]
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>("medicos")
+  const [reportFilter, setReportFilter] = useState("todos")
   const [medicos, setMedicos] = useState<Medico[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [citas, setCitas] = useState<Cita[]>(initialCitas)
-  const [especialidadesDB, setEspecialidadesDB] = useState<{id: number, nombre: string}[]>([])
+  const [especialidadesDB, setEspecialidadesDB] = useState<Especialidad[]>([])
+  const [sedesDB, setSedesDB] = useState<Sede[]>([])
+  
+  const [showEspecialidadModal, setShowEspecialidadModal] = useState(false)
+  const [showSedeModal, setShowSedeModal] = useState(false)
+  const [showCitaEditModal, setShowCitaEditModal] = useState(false)
+  
+  const [editingEspecialidadId, setEditingEspecialidadId] = useState<number | null>(null)
+  const [editingSedeId, setEditingSedeId] = useState<number | null>(null)
+  const [editingCitaId, setEditingCitaId] = useState<number | null>(null)
+  
+  const [newEspecialidad, setNewEspecialidad] = useState({ nombre: '', descripcion: '', iconoUrl: '' })
+  const [newSede, setNewSede] = useState({ nombre: '', direccion: '', distrito: '', ciudad: 'Lima', telefono: '', email: '' })
+  const [newCitaDatos, setNewCitaDatos] = useState({ medicoId: 0, fecha: '', hora: '' })
+  const [disponiblesCita, setDisponiblesCita] = useState<{horaInicio: string}[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   
   // Modals
@@ -114,7 +131,26 @@ export default function AdminPage() {
     fetchMedicos()
     fetchUsuarios()
     fetchEspecialidades()
+    fetchCitas()
+    fetchSedes()
   }, [])
+
+  const fetchSedes = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/sedes")
+      if (res.ok) setSedesDB(await res.json())
+    } catch (e) { console.error(e) }
+  }
+
+  const fetchCitas = async () => {
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch("http://localhost:8080/api/v1/citas/admin/todas", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) setCitas(await res.json())
+    } catch (e) { console.error(e) }
+  }
 
   const fetchMedicos = async () => {
     try {
@@ -156,10 +192,126 @@ export default function AdminPage() {
 
   const stats = [
     { label: "Total Medicos", value: medicos.length, icon: Users, trend: "+2 este mes", color: "from-blue-500 to-blue-600" },
-    { label: "Citas Hoy", value: citas.filter(c => c.fecha === "2024-01-15").length, icon: Calendar, trend: "+12% vs ayer", color: "from-emerald-500 to-emerald-600" },
-    { label: "Confirmadas", value: citas.filter(c => c.estado === "confirmada").length, icon: CheckCircle, trend: "85% del total", color: "from-teal-500 to-teal-600" },
-    { label: "Pendientes", value: citas.filter(c => c.estado === "pendiente").length, icon: Clock, trend: "Requieren atencion", color: "from-amber-500 to-amber-600" },
+    { label: "Citas Hoy", value: citas.filter(c => c.fecha === new Date().toISOString().split('T')[0]).length, icon: Calendar, trend: "Nuevas hoy", color: "from-emerald-500 to-emerald-600" },
+    { label: "Confirmadas", value: citas.filter(c => c.estado === "CONFIRMADO").length, icon: CheckCircle, trend: "85% del total", color: "from-teal-500 to-teal-600" },
+    { label: "Reservadas", value: citas.filter(c => c.estado === "RESERVADO").length, icon: Clock, trend: "Requieren atencion", color: "from-amber-500 to-amber-600" },
   ]
+
+
+  // Handlers for Especialidad
+  const handleAddEspecialidad = async () => {
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const url = editingEspecialidadId 
+        ? `http://localhost:8080/api/v1/especialidades/${editingEspecialidadId}` 
+        : "http://localhost:8080/api/v1/especialidades"
+      const res = await fetch(url, {
+        method: editingEspecialidadId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newEspecialidad)
+      })
+      if (res.ok) {
+        setShowEspecialidadModal(false)
+        setSuccessMessage(editingEspecialidadId ? "Especialidad actualizada" : "Especialidad agregada")
+        setTimeout(() => setSuccessMessage(""), 3000)
+        setEditingEspecialidadId(null)
+        fetchEspecialidades()
+      }
+    } catch (e) { console.error(e) }
+  }
+
+  const handleEditEspecialidadClick = (esp: Especialidad) => {
+    setNewEspecialidad({ nombre: esp.nombre, descripcion: esp.descripcion || '', iconoUrl: esp.iconoUrl || '' })
+    setEditingEspecialidadId(esp.id)
+    setShowEspecialidadModal(true)
+  }
+
+  const handleDeleteEspecialidad = async (id: number) => {
+    if (!confirm("¿Eliminar especialidad?")) return;
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`http://localhost:8080/api/v1/especialidades/${id}`, {
+        method: "DELETE", headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) fetchEspecialidades()
+    } catch (e) { console.error(e) }
+  }
+
+  // Handlers for Sede
+  const handleAddSede = async () => {
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const url = editingSedeId 
+        ? `http://localhost:8080/api/v1/sedes/${editingSedeId}` 
+        : "http://localhost:8080/api/v1/sedes"
+      const res = await fetch(url, {
+        method: editingSedeId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newSede)
+      })
+      if (res.ok) {
+        setShowSedeModal(false)
+        setSuccessMessage(editingSedeId ? "Sede actualizada" : "Sede agregada")
+        setTimeout(() => setSuccessMessage(""), 3000)
+        setEditingSedeId(null)
+        fetchSedes()
+      }
+    } catch (e) { console.error(e) }
+  }
+
+  const handleEditSedeClick = (sede: Sede) => {
+    setNewSede({ nombre: sede.nombre, direccion: sede.direccion, distrito: sede.distrito || '', ciudad: sede.ciudad, telefono: '', email: '' })
+    setEditingSedeId(sede.id)
+    setShowSedeModal(true)
+  }
+
+  const handleDeleteSede = async (id: number) => {
+    if (!confirm("¿Eliminar sede?")) return;
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`http://localhost:8080/api/v1/sedes/${id}`, {
+        method: "DELETE", headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) fetchSedes()
+    } catch (e) { console.error(e) }
+  }
+
+  // Handlers for Cita
+  const handleEditCitaClick = async (cita: Cita) => {
+    // Find medico id from medicos array (a bit of a hack since we don't have medicoId in Cita directly)
+    const m = medicos.find(x => x.nombres + " " + x.apellidos === cita.medicoNombre)
+    const mid = m ? m.id : 0
+    setNewCitaDatos({ medicoId: mid, fecha: cita.fecha, hora: cita.hora })
+    setEditingCitaId(cita.id)
+    setShowCitaEditModal(true)
+    if (mid && cita.fecha) {
+        const res = await fetch(`http://localhost:8080/api/v1/citas/disponibles?medicoId=${mid}&fecha=${cita.fecha}`)
+        if (res.ok) {
+            const data = await res.json()
+            setDisponiblesCita(data)
+        }
+    }
+  }
+
+  const handleSaveCitaEdit = async () => {
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`http://localhost:8080/api/v1/citas/admin/${editingCitaId}/datos`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newCitaDatos)
+      })
+      if (res.ok) {
+        setShowCitaEditModal(false)
+        setSuccessMessage("Cita actualizada")
+        setTimeout(() => setSuccessMessage(""), 3000)
+        setEditingCitaId(null)
+        fetchCitas()
+      } else {
+        alert("Error al actualizar la cita. Asegúrese de que el horario seleccionado esté disponible.")
+      }
+    } catch (e) { console.error(e) }
+  }
 
   const handleAddMedico = async () => {
     try {
@@ -268,8 +420,21 @@ export default function AdminPage() {
     } catch (e) { console.error(e) }
   }
 
-  const handleCitaStatusChange = (id: string, estado: Cita["estado"]) => {
-    setCitas(citas.map(c => c.id === id ? { ...c, estado } : c))
+  const handleCitaStatusChange = async (id: number, estado: string) => {
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`http://localhost:8080/api/v1/citas/admin/${id}/estado?estado=${estado}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        setCitas(citas.map(c => c.id === id ? { ...c, estado } : c))
+        setSuccessMessage("Estado de la cita actualizado")
+        setTimeout(() => setSuccessMessage(""), 3000)
+      } else {
+        alert("Error al actualizar estado")
+      }
+    } catch (e) { console.error(e) }
   }
 
   const filteredMedicos = medicos.filter(m => 
@@ -283,8 +448,8 @@ export default function AdminPage() {
   )
 
   const filteredCitas = citas.filter(c =>
-    c.paciente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.medico.toLowerCase().includes(searchTerm.toLowerCase())
+    (c.pacienteNombre || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.medicoNombre || "").toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
@@ -538,11 +703,11 @@ export default function AdminPage() {
                         <td className="py-4 px-4">
                           <span className="font-mono text-sm text-gray-600">{cita.id}</span>
                         </td>
-                        <td className="py-4 px-4 font-medium text-gray-900">{cita.paciente}</td>
+                        <td className="py-4 px-4 font-medium text-gray-900">{cita.pacienteNombre}</td>
                         <td className="py-4 px-4">
                           <div>
-                            <p className="text-gray-900">{cita.medico}</p>
-                            <p className="text-xs text-gray-500">{cita.especialidad}</p>
+                            <p className="text-gray-900">{cita.medicoNombre}</p>
+                            <p className="text-xs text-gray-500">{cita.especialidadNombre}</p>
                           </div>
                         </td>
                         <td className="py-4 px-4">
@@ -554,24 +719,38 @@ export default function AdminPage() {
                         <td className="py-4 px-4">
                           <select
                             value={cita.estado}
-                            onChange={(e) => handleCitaStatusChange(cita.id, e.target.value as Cita["estado"])}
+                            onChange={(e) => handleCitaStatusChange(cita.id, e.target.value)}
                             className={`px-3 py-1.5 rounded-full text-xs font-medium border-0 cursor-pointer ${
-                              cita.estado === "confirmada" ? "bg-emerald-100 text-emerald-700" :
-                              cita.estado === "pendiente" ? "bg-amber-100 text-amber-700" :
+                              cita.estado === "CONFIRMADO" || cita.estado === "ATENDIDO" ? "bg-emerald-100 text-emerald-700" :
+                              cita.estado === "RESERVADO" ? "bg-amber-100 text-amber-700" :
                               "bg-red-100 text-red-700"
                             }`}
                           >
-                            <option value="confirmada">Confirmada</option>
-                            <option value="pendiente">Pendiente</option>
-                            <option value="cancelada">Cancelada</option>
+                            <option value="RESERVADO">Reservado</option>
+                            <option value="CONFIRMADO">Confirmado</option>
+                            <option value="ATENDIDO">Atendido</option>
+                            <option value="CANCELADO">Cancelado</option>
+                            <option value="NO_ASISTIO">No Asistió</option>
                           </select>
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center justify-end gap-2">
-                            <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                            <button 
+                              onClick={() => handleEditCitaClick(cita)}
+                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              title="Editar cita"
+                            >
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                            <button 
+                              onClick={() => {
+                                if (confirm("¿Estás seguro de cancelar esta cita?")) {
+                                  handleCitaStatusChange(cita.id, "CANCELADO");
+                                }
+                              }}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="Cancelar cita"
+                            >
                               <XCircle className="w-4 h-4" />
                             </button>
                           </div>
@@ -601,26 +780,75 @@ export default function AdminPage() {
             {/* Reportes Tab */}
             {activeTab === "reportes" && (
               <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex justify-end mb-4">
+                  <div className="bg-white rounded-lg border p-1 inline-flex">
+                    {["todos", "hoy", "semana", "mes"].map(f => (
+                      <button 
+                        key={f} 
+                        onClick={() => setReportFilter(f)} 
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${reportFilter === f ? 'bg-emerald-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(() => {
+                  const now = new Date();
+                  const filteredCitas = citas.filter(cita => {
+                    if (reportFilter === 'todos') return true;
+                    if (!cita.fecha) return false;
+                    const citaDate = new Date(cita.fecha + 'T00:00:00');
+                    if (reportFilter === 'hoy') return citaDate.toDateString() === now.toDateString();
+                    if (reportFilter === 'semana') {
+                      const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay());
+                      const endOfWeek = new Date(now); endOfWeek.setDate(startOfWeek.getDate() + 6);
+                      return citaDate >= startOfWeek && citaDate <= endOfWeek;
+                    }
+                    if (reportFilter === 'mes') return citaDate.getMonth() === now.getMonth() && citaDate.getFullYear() === now.getFullYear();
+                    return true;
+                  });
+                  return (
+                    <>
+                      <div className="grid md:grid-cols-2 gap-6">
                   <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border">
                     <h3 className="font-bold text-gray-900 mb-4">Citas por Especialidad</h3>
                     <div className="space-y-3">
-                      {especialidades.slice(0, 5).map((esp, i) => (
-                        <div key={esp} className="flex items-center gap-3">
-                          <div className="flex-1">
-                            <div className="flex justify-between mb-1">
-                              <span className="text-sm text-gray-600">{esp}</span>
-                              <span className="text-sm font-medium">{(5 - i) * 12}%</span>
+                      {(() => {
+                        const citasPorEspecialidad = filteredCitas.reduce((acc, cita) => {
+                          acc[cita.especialidadNombre] = (acc[cita.especialidadNombre] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>);
+                        
+                        const total = filteredCitas.length || 1;
+                        const topEspecialidades = Object.entries(citasPorEspecialidad)
+                          .sort((a, b) => b[1] - a[1])
+                          .slice(0, 5);
+
+                        if (topEspecialidades.length === 0) {
+                          return <p className="text-gray-500 text-sm">No hay citas registradas</p>;
+                        }
+
+                        return topEspecialidades.map(([esp, count], i) => {
+                          const percentage = Math.round((count / total) * 100);
+                          return (
+                            <div key={esp} className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <div className="flex justify-between mb-1">
+                                  <span className="text-sm text-gray-600">{esp}</span>
+                                  <span className="text-sm font-medium">{percentage}%</span>
+                                </div>
+                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full"
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
+                              </div>
                             </div>
-                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full"
-                                style={{ width: `${(5 - i) * 20}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                          )
+                        });
+                      })()}
                     </div>
                   </div>
 
@@ -632,25 +860,28 @@ export default function AdminPage() {
                           <CheckCircle className="w-5 h-5 text-emerald-600" />
                           <span className="text-gray-700">Confirmadas</span>
                         </div>
-                        <span className="font-bold text-emerald-600">{citas.filter(c => c.estado === "confirmada").length}</span>
+                        <span className="font-bold text-emerald-600">{citas.filter(c => c.estado === "CONFIRMADO").length}</span>
                       </div>
                       <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl">
                         <div className="flex items-center gap-3">
                           <Clock className="w-5 h-5 text-amber-600" />
-                          <span className="text-gray-700">Pendientes</span>
+                          <span className="text-gray-700">Reservadas</span>
                         </div>
-                        <span className="font-bold text-amber-600">{citas.filter(c => c.estado === "pendiente").length}</span>
+                        <span className="font-bold text-amber-600">{citas.filter(c => c.estado === "RESERVADO").length}</span>
                       </div>
                       <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl">
                         <div className="flex items-center gap-3">
                           <XCircle className="w-5 h-5 text-red-600" />
                           <span className="text-gray-700">Canceladas</span>
                         </div>
-                        <span className="font-bold text-red-600">{citas.filter(c => c.estado === "cancelada").length}</span>
+                        <span className="font-bold text-red-600">{citas.filter(c => c.estado === "CANCELADO").length}</span>
                       </div>
                     </div>
                   </div>
                 </div>
+                  </>
+                );
+              })()}
               </div>
             )}
 
@@ -660,12 +891,14 @@ export default function AdminPage() {
                 <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border">
                   <h3 className="font-bold text-gray-900 mb-4">Especialidades Disponibles</h3>
                   <div className="flex flex-wrap gap-2">
-                    {especialidades.map((esp) => (
-                      <span key={esp} className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm">
-                        {esp}
+                    {especialidadesDB.map((esp) => (
+                      <span key={esp.id} className="group flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm">
+                        {esp.nombre}
+                        <button onClick={() => handleEditEspecialidadClick(esp)} className="hidden group-hover:block hover:text-blue-600"><Edit2 className="w-3 h-3" /></button>
+                        <button onClick={() => handleDeleteEspecialidad(esp.id)} className="hidden group-hover:block hover:text-red-600"><Trash2 className="w-3 h-3" /></button>
                       </span>
                     ))}
-                    <button className="px-3 py-1.5 border-2 border-dashed border-gray-300 text-gray-500 rounded-full text-sm hover:border-emerald-500 hover:text-emerald-600 transition-colors">
+                    <button onClick={() => { setNewEspecialidad({ nombre: '', descripcion: '', iconoUrl: '' }); setEditingEspecialidadId(null); setShowEspecialidadModal(true); }} className="px-3 py-1.5 border-2 border-dashed border-gray-300 text-gray-500 rounded-full text-sm hover:border-emerald-500 hover:text-emerald-600 transition-colors">
                       + Agregar
                     </button>
                   </div>
@@ -674,14 +907,17 @@ export default function AdminPage() {
                 <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border">
                   <h3 className="font-bold text-gray-900 mb-4">Sedes</h3>
                   <div className="space-y-3">
-                    {sedes.map((sede) => (
-                      <div key={sede} className="flex items-center justify-between p-3 bg-white border rounded-xl">
-                        <span className="text-gray-700">{sede}</span>
+                    <button onClick={() => { setNewSede({ nombre: '', direccion: '', distrito: '', ciudad: 'Lima', telefono: '', email: '' }); setEditingSedeId(null); setShowSedeModal(true); }} className="w-full py-2 mb-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-xl hover:border-emerald-500 hover:text-emerald-600 transition-colors text-sm font-medium">
+                      + Agregar Sede
+                    </button>
+                    {sedesDB.map((sede) => (
+                      <div key={sede.id} className="flex items-center justify-between p-3 bg-white border rounded-xl">
+                        <span className="text-gray-700 font-medium">{sede.nombre} <span className="text-sm font-normal text-gray-500 block">{sede.direccion} - {sede.ciudad}</span></span>
                         <div className="flex gap-2">
-                          <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                          <button onClick={() => handleEditSedeClick(sede)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                          <button onClick={() => handleDeleteSede(sede.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -708,6 +944,111 @@ export default function AdminPage() {
           </div>
         </div>
       </main>
+
+      
+      {/* Especialidad Modal */}
+      {showEspecialidadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-bold text-gray-900">{editingEspecialidadId ? "Editar Especialidad" : "Agregar Especialidad"}</h3>
+              <button onClick={() => setShowEspecialidadModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
+                <input type="text" value={newEspecialidad.nombre} onChange={(e) => setNewEspecialidad({...newEspecialidad, nombre: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                <textarea value={newEspecialidad.descripcion} onChange={(e) => setNewEspecialidad({...newEspecialidad, descripcion: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl"></textarea>
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 border-t">
+              <button onClick={() => setShowEspecialidadModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl">Cancelar</button>
+              <button onClick={handleAddEspecialidad} className="flex-1 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-xl">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sede Modal */}
+      {showSedeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-bold text-gray-900">{editingSedeId ? "Editar Sede" : "Agregar Sede"}</h3>
+              <button onClick={() => setShowSedeModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div><label className="block text-sm font-medium text-gray-700 mb-2">Nombre</label><input type="text" value={newSede.nombre} onChange={(e) => setNewSede({...newSede, nombre: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label><input type="text" value={newSede.direccion} onChange={(e) => setNewSede({...newSede, direccion: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium text-gray-700 mb-2">Ciudad</label><input type="text" value={newSede.ciudad} onChange={(e) => setNewSede({...newSede, ciudad: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-2">Distrito</label><input type="text" value={newSede.distrito} onChange={(e) => setNewSede({...newSede, distrito: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl" /></div>
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 border-t">
+              <button onClick={() => setShowSedeModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl">Cancelar</button>
+              <button onClick={handleAddSede} className="flex-1 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-xl">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cita Edit Modal */}
+      {showCitaEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-bold text-gray-900">Editar Cita</h3>
+              <button onClick={() => setShowCitaEditModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Médico</label>
+                <select value={newCitaDatos.medicoId} onChange={async (e) => {
+                    const mid = parseInt(e.target.value);
+                    setNewCitaDatos({...newCitaDatos, medicoId: mid});
+                    if (newCitaDatos.fecha) {
+                      const res = await fetch(`http://localhost:8080/api/v1/citas/disponibles?medicoId=${mid}&fecha=${newCitaDatos.fecha}`);
+                      if (res.ok) setDisponiblesCita(await res.json());
+                    }
+                  }} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                  <option value={0} disabled>Seleccione un médico</option>
+                  {medicos.map(m => <option key={m.id} value={m.id}>{m.nombres} {m.apellidos} - {m.especialidadNombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+                <input type="date" value={newCitaDatos.fecha} onChange={async (e) => {
+                    const date = e.target.value;
+                    setNewCitaDatos({...newCitaDatos, fecha: date});
+                    if (newCitaDatos.medicoId) {
+                      const res = await fetch(`http://localhost:8080/api/v1/citas/disponibles?medicoId=${newCitaDatos.medicoId}&fecha=${date}`);
+                      if (res.ok) setDisponiblesCita(await res.json());
+                    }
+                  }} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hora (Debe seleccionar disponibilidad)</label>
+                <select value={newCitaDatos.hora} onChange={(e) => setNewCitaDatos({...newCitaDatos, hora: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl">
+                  <option value="" disabled>Seleccione un horario</option>
+                  {/* Keep current hora as an option if not in disponibles since we are editing and it is already ours */}
+                  <option value={newCitaDatos.hora} className="bg-blue-50">Hora actual ({newCitaDatos.hora})</option>
+                  {disponiblesCita.map(h => <option key={h.horaInicio} value={h.horaInicio}>{h.horaInicio}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 border-t">
+              <button onClick={() => setShowCitaEditModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl">Cancelar</button>
+              <button onClick={handleSaveCitaEdit} className="flex-1 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-xl">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Medico Modal */}
       {showMedicoModal && (
