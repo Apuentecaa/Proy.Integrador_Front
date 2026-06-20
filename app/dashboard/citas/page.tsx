@@ -2,6 +2,8 @@
 
 import { Calendar, Clock, MapPin, MoreVertical, Edit, X, CheckCircle2, AlertCircle, DollarSign, CreditCard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
@@ -30,6 +32,8 @@ export default function MyAppointmentsPage() {
   const { appointments, cancelAppointment } = useAppointments()
   const router = useRouter()
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState("")
+  const [cancelError, setCancelError] = useState(false)
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null)
 
   const handleReschedule = (appointmentId: string) => {
@@ -43,14 +47,22 @@ export default function MyAppointmentsPage() {
     setCancelDialogOpen(true)
   }
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!cancelReason.trim()) {
+      setCancelError(true)
+      return
+    }
+    
     if (selectedAppointmentId) {
       cancelAppointment(selectedAppointmentId)
       toast.success('Cita cancelada', {
-        description: 'La cita ha sido cancelada exitosamente',
+        description: 'La cita ha sido cancelada exitosamente. Si realizó un pago, su devolución se procesará en 3-5 días hábiles.',
       })
       setCancelDialogOpen(false)
       setSelectedAppointmentId(null)
+      setCancelReason("")
+      setCancelError(false)
     }
   }
 
@@ -341,7 +353,7 @@ export default function MyAppointmentsPage() {
       )}
 
       {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <AlertDialog open={cancelDialogOpen} onOpenChange={(open) => { setCancelDialogOpen(open); if(!open) { setCancelReason(""); setCancelError(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Seguro que deseas cancelar?</AlertDialogTitle>

@@ -86,6 +86,7 @@ const sedes = ["San Isidro", "Miraflores", "Surco"]
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>("medicos")
+  const [reportFilter, setReportFilter] = useState("todos")
   const [medicos, setMedicos] = useState<Medico[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [citas, setCitas] = useState<Cita[]>(initialCitas)
@@ -779,17 +780,47 @@ export default function AdminPage() {
             {/* Reportes Tab */}
             {activeTab === "reportes" && (
               <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex justify-end mb-4">
+                  <div className="bg-white rounded-lg border p-1 inline-flex">
+                    {["todos", "hoy", "semana", "mes"].map(f => (
+                      <button 
+                        key={f} 
+                        onClick={() => setReportFilter(f)} 
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${reportFilter === f ? 'bg-emerald-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(() => {
+                  const now = new Date();
+                  const filteredCitas = citas.filter(cita => {
+                    if (reportFilter === 'todos') return true;
+                    if (!cita.fecha) return false;
+                    const citaDate = new Date(cita.fecha + 'T00:00:00');
+                    if (reportFilter === 'hoy') return citaDate.toDateString() === now.toDateString();
+                    if (reportFilter === 'semana') {
+                      const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay());
+                      const endOfWeek = new Date(now); endOfWeek.setDate(startOfWeek.getDate() + 6);
+                      return citaDate >= startOfWeek && citaDate <= endOfWeek;
+                    }
+                    if (reportFilter === 'mes') return citaDate.getMonth() === now.getMonth() && citaDate.getFullYear() === now.getFullYear();
+                    return true;
+                  });
+                  return (
+                    <>
+                      <div className="grid md:grid-cols-2 gap-6">
                   <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border">
                     <h3 className="font-bold text-gray-900 mb-4">Citas por Especialidad</h3>
                     <div className="space-y-3">
                       {(() => {
-                        const citasPorEspecialidad = citas.reduce((acc, cita) => {
+                        const citasPorEspecialidad = filteredCitas.reduce((acc, cita) => {
                           acc[cita.especialidadNombre] = (acc[cita.especialidadNombre] || 0) + 1;
                           return acc;
                         }, {} as Record<string, number>);
                         
-                        const total = citas.length || 1;
+                        const total = filteredCitas.length || 1;
                         const topEspecialidades = Object.entries(citasPorEspecialidad)
                           .sort((a, b) => b[1] - a[1])
                           .slice(0, 5);
@@ -848,6 +879,9 @@ export default function AdminPage() {
                     </div>
                   </div>
                 </div>
+                  </>
+                );
+              })()}
               </div>
             )}
 
