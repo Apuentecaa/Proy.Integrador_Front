@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   login: (email: string, password: string, role?: Role) => Promise<Role | void>
-  register: (name: string, apellidos: string, email: string, phone: string, dni: string, password: string) => Promise<void>
+  register: (name: string, email: string, phone: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -37,65 +37,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string, role: Role = 'patient') => {
     try {
+      // Conexión al Backend de Spring Boot mediante REST API
       const response = await fetch('http://localhost:8080/api/v1/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email, password })
-      });
+      })
 
       if (!response.ok) {
-        throw new Error('Credenciales inválidas');
+        throw new Error('Credenciales inválidas')
       }
 
-      const data = await response.json();
+      const data = await response.json()
       
+      // Construimos el objeto del usuario con los datos del backend
       const realUser: User = {
-        id: data.id.toString(),
-        name: data.nombre,
-        email: data.email,
-        phone: 'Registrado en BD',
-        role: data.role as Role || 'patient'
+        id: data.id?.toString() || Date.now().toString(),
+        name: data.nombre || (email === 'admin@smartsalud.com' ? 'Administrador' : 'Usuario'),
+        email: data.email || email,
+        phone: data.telefono || '+51 987 654 321',
+        role: (data.role as Role) || role || 'patient'
       }
       
       setUser(realUser)
       localStorage.setItem('smartSaludUser', JSON.stringify(realUser))
-      localStorage.setItem('smartSaludToken', data.token) // Guardamos el JWT
-      return realUser.role; // Returning role so login page can redirect accordingly
+      if (data.token) {
+        localStorage.setItem('smartSaludToken', data.token)
+      }
+      
+      // Determinamos el rol para redirección
+      const userRole = realUser.role
+      
+      // Redirigir según el rol
+      if (userRole === 'admin' || userRole === 'super_admin') {
+        router.push('/dashboard/admin')
+      } else if (userRole === 'doctor') {
+        router.push('/dashboard/doctor')
+      } else if (userRole === 'receptionist') {
+        router.push('/dashboard/receptionist')
+      } else {
+        router.push('/dashboard/patient')
+      }
+      
+      return userRole
+      
     } catch (error) {
-      console.error("Login falló:", error);
-      alert("Error al iniciar sesión. Verifica tus credenciales.");
-      throw error;
+      console.error('Error durante el proceso de login:', error)
+      throw error
     }
   }
 
-  const register = async (name: string, apellidos: string, email: string, phone: string, dni: string, password: string) => {
+  const register = async (name: string, email: string, phone: string, password: string) => {
     try {
       const response = await fetch('http://localhost:8080/api/v1/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombres: name, apellidos, email, telefono: phone, dni, password })
-      });
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, phone, password, role: 'patient' })
+      })
 
       if (!response.ok) {
-        throw new Error('Error al registrar usuario');
+        throw new Error('Error en el registro')
       }
 
-      const data = await response.json();
+      const data = await response.json()
       
       const newUser: User = {
-        id: data.id.toString(),
-        name: data.nombre,
-        email: data.email,
-        phone: phone,
-        role: data.role as Role || 'patient'
+        id: data.id?.toString() || Date.now().toString(),
+        name: data.nombre || name,
+        email: data.email || email,
+        phone: data.telefono || phone,
+        role: 'patient'
       }
       
       setUser(newUser)
       localStorage.setItem('smartSaludUser', JSON.stringify(newUser))
-      localStorage.setItem('smartSaludToken', data.token)
+      if (data.token) {
+        localStorage.setItem('smartSaludToken', data.token)
+      }
+      
+      router.push('/dashboard/patient')
+      
     } catch (error) {
-      console.error("Registro falló:", error);
-      throw error;
+      console.error('Error en registro:', error)
+      throw error
     }
   }
 
