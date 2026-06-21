@@ -25,7 +25,7 @@ export default function MedicoLayout({ children }: { children: React.ReactNode }
     if (isLoginPage) return // login es público
     const stored = typeof window !== 'undefined' ? localStorage.getItem('smartSaludUser') : null
     if (!isAuthenticated && !stored) {
-      router.push('/medico/login')
+      router.push('/login')
       return
     }
     const storedUser = stored ? JSON.parse(stored) : null

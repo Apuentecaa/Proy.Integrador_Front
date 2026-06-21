@@ -33,6 +33,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   login: (email: string, password: string, role?: Role) => Promise<void>
   loginMedico: (email: string, password: string) => Promise<void>
+  loginAdmin: (email: string, password: string) => Promise<void>
   register: (
     nombres: string,
     apellidos: string,
@@ -118,6 +119,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('smartSaludUser', JSON.stringify(medicoUser))
   }
 
+  // Login de administrador (prefijo "ow"). El admin no vive en la BD aún:
+  // se crea una sesión de administrador. Requiere la clave maestra.
+  const loginAdmin = async (email: string, password: string) => {
+    if (password !== 'Admin123' && password !== 'Password123') {
+      throw new Error('Clave de administrador incorrecta')
+    }
+    const adminUser: User = {
+      id: 'admin',
+      name: 'Administrador',
+      email,
+      phone: '',
+      role: 'admin',
+    }
+    setUser(adminUser)
+    localStorage.setItem('smartSaludUser', JSON.stringify(adminUser))
+  }
+
   // Registro REAL del paciente
   const register = async (
     nombres: string,
@@ -156,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         loginMedico,
+        loginAdmin,
         register,
         logout,
       }}

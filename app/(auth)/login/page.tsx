@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, loginMedico, loginAdmin } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -23,18 +23,48 @@ export default function LoginPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
 
+  // Detecta el rol por prefijo:
+  //   dc + correo  -> doctor   (ej: dc:c.mendoza@vidasalud.pe)
+  //   ow + correo  -> admin    (ej: ow:admin@vidasalud.pe)
+  //   correo solo  -> paciente
+  const parseLogin = (raw: string): { role: 'doctor' | 'admin' | 'patient'; email: string } => {
+    const value = raw.trim()
+    const lower = value.toLowerCase()
+    if (lower.startsWith('dc')) {
+      const email = value.slice(2).replace(/^[\s:_-]+/, '')
+      if (email.includes('@')) return { role: 'doctor', email }
+    }
+    if (lower.startsWith('ow')) {
+      const email = value.slice(2).replace(/^[\s:_-]+/, '')
+      if (email.includes('@')) return { role: 'admin', email }
+    }
+    return { role: 'patient', email: value }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
+    const { role, email } = parseLogin(formData.email)
+
     try {
-      await login(formData.email, formData.password)
-      toast.success('¡Bienvenido a Smart Salud!', {
-        description: 'Has iniciado sesión correctamente',
-      })
-      router.push('/dashboard')
+      if (role === 'doctor') {
+        await loginMedico(email, formData.password)
+        toast.success('Bienvenido, doctor', { description: 'Accediendo a tu portal médico' })
+        router.push('/medico/citas')
+      } else if (role === 'admin') {
+        await loginAdmin(email, formData.password)
+        toast.success('Bienvenido, administrador', { description: 'Accediendo al panel' })
+        router.push('/dashboard')
+      } else {
+        await login(email, formData.password)
+        toast.success('¡Bienvenido a Smart Salud!', { description: 'Has iniciado sesión correctamente' })
+        router.push('/dashboard')
+      }
     } catch (error) {
       const msg = error instanceof ApiError
+        ? error.message
+        : error instanceof Error
         ? error.message
         : 'Verifica tus credenciales e intenta nuevamente'
       toast.error('Error al iniciar sesión', { description: msg })
@@ -77,15 +107,23 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Convención de acceso */}
+            <div className="mb-5 p-3 bg-slate-50 border rounded-lg text-xs text-slate-600 space-y-1">
+              <p className="font-semibold text-slate-700">¿Cómo iniciar sesión?</p>
+              <p>👤 <strong>Paciente:</strong> tu correo (ej: <code>juan.perez@email.com</code>)</p>
+              <p>🩺 <strong>Doctor:</strong> <code>dc:</code> + tu correo (ej: <code>dc:c.mendoza@vidasalud.pe</code>)</p>
+              <p>🛠️ <strong>Admin:</strong> <code>ow:</code> + tu correo (ej: <code>ow:admin@vidasalud.pe</code>)</p>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Correo Electrónico</Label>
+                <Label htmlFor="email">Correo / Usuario</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
-                    type="email"
-                    placeholder="tu@email.com"
+                    type="text"
+                    placeholder="tu@email.com  ·  dc:correo  ·  ow:correo"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="pl-10"
