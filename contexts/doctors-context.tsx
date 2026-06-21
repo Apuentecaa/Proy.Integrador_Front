@@ -48,7 +48,7 @@ const defaultDoctors: Doctor[] = [
 
 const defaultSpecialties = ['Medicina General', 'Cardiología', 'Pediatría', 'Ginecología', 'Dermatología', 'Traumatología', 'Neurología']
 
-// Precio fijo por defecto cuando no hay tarifa específica (la BD tiene tarifa_consulta pero no la consultamos aún)
+// Precio por defecto solo si el médico no tiene tarifa registrada en la BD (tabla tarifa_consulta)
 const DEFAULT_PRICE = 80
 
 function mapBackendMedicoToDoctor(m: MedicoListItem): Doctor {
@@ -64,7 +64,8 @@ function mapBackendMedicoToDoctor(m: MedicoListItem): Doctor {
     patients: 0,
     floor: 1,
     room: 'C-101',
-    price: DEFAULT_PRICE,
+    // precio real desde la BD (tarifa_consulta); fallback solo si viene null
+    price: m.tarifaConsulta != null ? Number(m.tarifaConsulta) : DEFAULT_PRICE,
     backendId: m.id,
     especialidadId: m.especialidadId,
   }

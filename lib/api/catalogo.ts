@@ -29,6 +29,7 @@ export interface MedicoListItem {
   fotoUrl: string | null
   aniosExperiencia: number | null
   descripcionProfesional: string | null
+  tarifaConsulta: number | null
 }
 
 export function listarEspecialidades(): Promise<Especialidad[]> {

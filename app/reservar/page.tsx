@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Stethoscope,
   FileText,
+  Loader2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -32,6 +33,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/auth-context'
 import { useAppointments } from '@/contexts/appointments-context'
 import { useDoctors } from '@/contexts/doctors-context'
+import { listarSlotsDisponibles, type SlotDisponible } from '@/lib/api/cita'
 import { PaymentFlow } from '@/components/payment-flow'
 import Header from '@/components/header'
 import Footer from '@/components/footer'
@@ -41,12 +43,16 @@ function BookingContent() {
   const searchParams = useSearchParams()
   const { user, isAuthenticated } = useAuth()
   const { addAppointment, updateAppointment } = useAppointments()
-  const { doctors: allDoctors, specialties, getDoctorsBySpecialty, getDoctor } = useDoctors()
-  
+  const { doctors: allDoctors, specialties, getDoctorsBySpecialty, getDoctor, usingMock } = useDoctors()
+
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [registeredAppointmentId, setRegisteredAppointmentId] = useState<string | null>(null)
-  
+
+  // Slots reales traídos del backend según el médico y la fecha elegidos
+  const [realSlots, setRealSlots] = useState<SlotDisponible[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+
   const [bookingData, setBookingData] = useState({
     specialty: '',
     doctor: '',
@@ -65,11 +71,39 @@ function BookingContent() {
     }
   }, [searchParams])
 
-  const timeSlots = [
+  // Horarios estáticos de respaldo (cuando no hay backend o el médico no tiene IDs reales)
+  const staticTimeSlots = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
     '17:00', '17:30',
   ]
+
+  const selectedDoctorObj = bookingData.doctor ? getDoctor(bookingData.doctor) : null
+  const canUseRealSlots = !usingMock && !!selectedDoctorObj?.backendId
+
+  // Carga los slots reales cada vez que cambia la fecha o el médico
+  useEffect(() => {
+    if (!canUseRealSlots || !selectedDate || !selectedDoctorObj?.backendId) {
+      setRealSlots([])
+      return
+    }
+    const fechaStr = format(selectedDate, 'yyyy-MM-dd')
+    let cancelled = false
+    setLoadingSlots(true)
+    listarSlotsDisponibles(selectedDoctorObj.backendId, fechaStr)
+      .then((slots) => { if (!cancelled) setRealSlots(slots) })
+      .catch((err) => {
+        console.warn('No se pudieron cargar los horarios reales, usando estáticos', err)
+        if (!cancelled) setRealSlots([])
+      })
+      .finally(() => { if (!cancelled) setLoadingSlots(false) })
+    return () => { cancelled = true }
+  }, [canUseRealSlots, selectedDate, selectedDoctorObj?.backendId])
+
+  // Lista normalizada de horarios a mostrar: { hora 'HH:mm', disponible }
+  const displaySlots: { hora: string; disponible: boolean }[] = canUseRealSlots
+    ? realSlots.map((s) => ({ hora: s.hora.slice(0, 5), disponible: s.disponible }))
+    : staticTimeSlots.map((h) => ({ hora: h, disponible: true }))
 
   const steps = [
     { number: 1, title: 'Especialidad y Doctor', icon: Stethoscope },
@@ -315,7 +349,10 @@ function BookingContent() {
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={setSelectedDate}
+                    onSelect={(date) => {
+                      setSelectedDate(date)
+                      setBookingData((prev) => ({ ...prev, timeSlot: '' }))
+                    }}
                     locale={es}
                     disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || date.getDay() === 0}
                     className="rounded-xl border shadow-sm p-4 pointer-events-auto"
@@ -334,23 +371,38 @@ function BookingContent() {
                 </CardHeader>
                 <CardContent>
                   {selectedDate ? (
+                    loadingSlots ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <Loader2 className="h-7 w-7 animate-spin text-emerald-500 mb-3" />
+                        <p className="text-sm">Cargando horarios disponibles...</p>
+                      </div>
+                    ) : displaySlots.length === 0 ? (
+                      <div className="text-center py-12 px-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+                        <Clock className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-500 font-medium">No hay horarios disponibles para este día</p>
+                        <p className="text-xs text-gray-400 mt-1">Prueba con otra fecha</p>
+                      </div>
+                    ) : (
                     <div className="grid grid-cols-3 gap-3">
-                      {timeSlots.map((time) => (
+                      {displaySlots.map(({ hora, disponible }) => (
                         <Button
-                          key={time}
-                          variant={bookingData.timeSlot === time ? 'default' : 'outline'}
+                          key={hora}
+                          disabled={!disponible}
+                          variant={bookingData.timeSlot === hora ? 'default' : 'outline'}
+                          title={disponible ? undefined : 'Horario ocupado'}
                           className={`h-12 rounded-xl transition-all ${
-                            bookingData.timeSlot === time
+                            bookingData.timeSlot === hora
                               ? 'bg-gradient-to-r from-emerald-500 to-blue-500 shadow-md scale-105'
                               : 'hover:border-emerald-300 hover:text-emerald-700'
-                          }`}
-                          onClick={() => setBookingData({ ...bookingData, timeSlot: time })}
+                          } ${!disponible ? 'opacity-40 line-through cursor-not-allowed' : ''}`}
+                          onClick={() => setBookingData({ ...bookingData, timeSlot: hora })}
                         >
                           <Clock className="h-4 w-4 mr-2" />
-                          {time}
+                          {hora}
                         </Button>
                       ))}
                     </div>
+                    )
                   ) : (
                     <div className="text-center py-12 px-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
