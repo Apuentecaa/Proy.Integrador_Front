@@ -137,7 +137,7 @@ export default function AdminPage() {
 
   const fetchSedes = async () => {
     try {
-      const res = await fetch("http://localhost:8080/api/v1/sedes")
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/sedes`)
       if (res.ok) setSedesDB(await res.json())
     } catch (e) { console.error(e) }
   }
@@ -145,7 +145,7 @@ export default function AdminPage() {
   const fetchCitas = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch("http://localhost:8080/api/v1/citas/admin/todas", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/citas/admin/todas`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) setCitas(await res.json())
@@ -155,7 +155,7 @@ export default function AdminPage() {
   const fetchMedicos = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch("http://localhost:8080/api/v1/medicos", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/medicos`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) setMedicos(await res.json())
@@ -165,7 +165,7 @@ export default function AdminPage() {
   const fetchUsuarios = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch("http://localhost:8080/api/v1/admin/usuarios", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/admin/usuarios`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) setUsuarios(await res.json())
@@ -175,7 +175,7 @@ export default function AdminPage() {
   const fetchEspecialidades = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch("http://localhost:8080/api/v1/especialidades", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/especialidades`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) setEspecialidadesDB(await res.json())
@@ -203,8 +203,8 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem("smartSaludToken")
       const url = editingEspecialidadId 
-        ? `http://localhost:8080/api/v1/especialidades/${editingEspecialidadId}` 
-        : "http://localhost:8080/api/v1/especialidades"
+        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/especialidades/${editingEspecialidadId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/especialidades`
       const res = await fetch(url, {
         method: editingEspecialidadId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -230,7 +230,7 @@ export default function AdminPage() {
     if (!confirm("¿Eliminar especialidad?")) return;
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`http://localhost:8080/api/v1/especialidades/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/especialidades/${id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) fetchEspecialidades()
@@ -242,8 +242,8 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem("smartSaludToken")
       const url = editingSedeId 
-        ? `http://localhost:8080/api/v1/sedes/${editingSedeId}` 
-        : "http://localhost:8080/api/v1/sedes"
+        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/sedes/${editingSedeId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/sedes`
       const res = await fetch(url, {
         method: editingSedeId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -269,7 +269,7 @@ export default function AdminPage() {
     if (!confirm("¿Eliminar sede?")) return;
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`http://localhost:8080/api/v1/sedes/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/sedes/${id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) fetchSedes()
@@ -285,7 +285,7 @@ export default function AdminPage() {
     setEditingCitaId(cita.id)
     setShowCitaEditModal(true)
     if (mid && cita.fecha) {
-        const res = await fetch(`http://localhost:8080/api/v1/citas/disponibles?medicoId=${mid}&fecha=${cita.fecha}`)
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/disponibles?medicoId=${mid}&fecha=${cita.fecha}`)
         if (res.ok) {
             const data = await res.json()
             setDisponiblesCita(data)
@@ -296,7 +296,7 @@ export default function AdminPage() {
   const handleSaveCitaEdit = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`http://localhost:8080/api/v1/citas/admin/${editingCitaId}/datos`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/admin/${editingCitaId}/datos`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(newCitaDatos)
@@ -317,8 +317,8 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem("smartSaludToken")
       const url = editingMedicoId 
-        ? `http://localhost:8080/api/v1/medicos/${editingMedicoId}` 
-        : "http://localhost:8080/api/v1/medicos"
+        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/medicos/${editingMedicoId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/medicos`
       const res = await fetch(url, {
         method: editingMedicoId ? "PUT" : "POST",
         headers: { 
@@ -360,7 +360,7 @@ export default function AdminPage() {
     if(!confirm("¿Eliminar médico?")) return;
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`http://localhost:8080/api/v1/medicos/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/medicos/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -372,8 +372,8 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem("smartSaludToken")
       const url = editingUsuarioId 
-        ? `http://localhost:8080/api/v1/admin/usuarios/${editingUsuarioId}` 
-        : "http://localhost:8080/api/v1/admin/usuarios"
+        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/admin/usuarios/${editingUsuarioId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/admin/usuarios`
       const res = await fetch(url, {
         method: editingUsuarioId ? "PUT" : "POST",
         headers: { 
@@ -412,7 +412,7 @@ export default function AdminPage() {
     if(!confirm("¿Eliminar usuario?")) return;
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`http://localhost:8080/api/v1/admin/usuarios/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/admin/usuarios/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -423,7 +423,7 @@ export default function AdminPage() {
   const handleCitaStatusChange = async (id: number, estado: string) => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`http://localhost:8080/api/v1/citas/admin/${id}/estado?estado=${estado}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/admin/${id}/estado?estado=${estado}`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -1013,7 +1013,7 @@ export default function AdminPage() {
                     const mid = parseInt(e.target.value);
                     setNewCitaDatos({...newCitaDatos, medicoId: mid});
                     if (newCitaDatos.fecha) {
-                      const res = await fetch(`http://localhost:8080/api/v1/citas/disponibles?medicoId=${mid}&fecha=${newCitaDatos.fecha}`);
+                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/disponibles?medicoId=${mid}&fecha=${newCitaDatos.fecha}`);
                       if (res.ok) setDisponiblesCita(await res.json());
                     }
                   }} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500">
@@ -1027,7 +1027,7 @@ export default function AdminPage() {
                     const date = e.target.value;
                     setNewCitaDatos({...newCitaDatos, fecha: date});
                     if (newCitaDatos.medicoId) {
-                      const res = await fetch(`http://localhost:8080/api/v1/citas/disponibles?medicoId=${newCitaDatos.medicoId}&fecha=${date}`);
+                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/disponibles?medicoId=${newCitaDatos.medicoId}&fecha=${date}`);
                       if (res.ok) setDisponiblesCita(await res.json());
                     }
                   }} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl" />
