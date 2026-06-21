@@ -13,6 +13,7 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { getCitasByMedico, type CitaMedico } from "@/lib/api/medico"
+import { crearHistorial } from "@/lib/api/historial"
 import { ApiError } from "@/lib/api/client"
 
 // Fallback mock para cuando el backend no está disponible (modo demo)
@@ -48,6 +49,7 @@ export default function CitasPage() {
   const [prescription, setPrescription] = useState("")
   const [labRequest, setLabRequest] = useState("")
   const [imagingRequest, setImagingRequest] = useState("")
+  const [saving, setSaving] = useState(false)
 
   const today = format(new Date(), "EEEE, d 'de' MMMM yyyy", { locale: es })
 
@@ -93,20 +95,52 @@ export default function CitasPage() {
     setDiagnosis(""); setPrescription(""); setLabRequest(""); setImagingRequest("")
   }
 
-  const saveAttention = () => {
+  const saveAttention = async () => {
     if (!diagnosis.trim()) {
       toast.warning("Diagnóstico requerido")
       return
     }
-    const pacienteEmail = attending!.pacienteEmail
-    const pacienteName  = `${attending!.pacienteNombres} ${attending!.pacienteApellidos}`
-    if (prescription)   addDocument({ patientId: pacienteEmail, title: `Receta — ${pacienteName}`,  type: "prescription", date: new Date().toISOString().split("T")[0], url: "#", createdBy: user?.name ?? "Dr." })
-    if (labRequest)     addDocument({ patientId: pacienteEmail, title: `Lab: ${labRequest}`,        type: "lab_result",   date: new Date().toISOString().split("T")[0], url: "#", createdBy: user?.name ?? "Dr." })
-    if (imagingRequest) addDocument({ patientId: pacienteEmail, title: `Imagen: ${imagingRequest}`, type: "imaging",      date: new Date().toISOString().split("T")[0], url: "#", createdBy: user?.name ?? "Dr." })
+    const cita = attending!
+    const pacienteEmail = cita.pacienteEmail
+    const pacienteName  = `${cita.pacienteNombres} ${cita.pacienteApellidos}`
 
-    setCitas(prev => prev.map(c => c.id === attending!.id ? { ...c, estado: "ATENDIDO" } : c))
-    toast.success("Atención registrada", { description: `Documentos generados para ${pacienteName}` })
-    setAttending(null)
+    // Las indicaciones de laboratorio e imagen se guardan como observaciones
+    const observaciones = [
+      labRequest ? `Laboratorio: ${labRequest}` : null,
+      imagingRequest ? `Imagen: ${imagingRequest}` : null,
+    ].filter(Boolean).join(" | ")
+
+    setSaving(true)
+    try {
+      // 1) Persistir el historial clínico en la BD (esto marca la cita ATENDIDO)
+      if (user?.medicoId && !usingMock) {
+        await crearHistorial({
+          pacienteId: cita.pacienteId,
+          medicoId: user.medicoId,
+          citaId: cita.id,
+          motivoConsulta: cita.motivoConsulta ?? undefined,
+          diagnostico: diagnosis,
+          tratamiento: prescription || undefined,
+          observaciones: observaciones || undefined,
+        })
+      }
+
+      // 2) También dejamos los documentos en el portal del paciente (vista local)
+      if (prescription)   addDocument({ patientId: pacienteEmail, title: `Receta — ${pacienteName}`,  type: "prescription", date: new Date().toISOString().split("T")[0], url: "#", createdBy: user?.name ?? "Dr." })
+      if (labRequest)     addDocument({ patientId: pacienteEmail, title: `Lab: ${labRequest}`,        type: "lab_result",   date: new Date().toISOString().split("T")[0], url: "#", createdBy: user?.name ?? "Dr." })
+      if (imagingRequest) addDocument({ patientId: pacienteEmail, title: `Imagen: ${imagingRequest}`, type: "imaging",      date: new Date().toISOString().split("T")[0], url: "#", createdBy: user?.name ?? "Dr." })
+
+      setCitas(prev => prev.map(c => c.id === cita.id ? { ...c, estado: "ATENDIDO" } : c))
+      toast.success("Atención registrada", {
+        description: `Historial clínico guardado para ${pacienteName}`,
+      })
+      setAttending(null)
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "No se pudo guardar el historial"
+      toast.error("Error al registrar la atención", { description: msg })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const formatHora = (h: string) => h.substring(0, 5)
@@ -328,15 +362,17 @@ export default function CitasPage() {
               <div className="flex gap-3 pt-2 border-t">
                 <button
                   onClick={() => setAttending(null)}
-                  className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold text-sm"
+                  disabled={saving}
+                  className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold text-sm disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={saveAttention}
-                  className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-xl hover:from-emerald-600 hover:to-blue-600 font-semibold text-sm shadow-md"
+                  disabled={saving}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-xl hover:from-emerald-600 hover:to-blue-600 font-semibold text-sm shadow-md disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  Guardar Atención
+                  {saving ? (<><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>) : "Guardar Atención"}
                 </button>
               </div>
             </div>
