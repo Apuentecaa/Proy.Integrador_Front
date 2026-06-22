@@ -66,7 +66,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
             email: "N/A",
             time: d.hora,
             status: d.estado,
-            specialty: d.especialidad,
+            specialty: d.especialidadNombre || "Especialidad",
             age: "Adulto",
             motive: d.tipoConsulta || "Consulta"
           }));
