@@ -1,6 +1,7 @@
 "use client"
 
-import { Calendar, Clock, MapPin, MoreVertical, Edit, X, CheckCircle2, AlertCircle, DollarSign, CreditCard } from 'lucide-react'
+import jsPDF from 'jspdf'
+import { Calendar, Clock, MapPin, MoreVertical, Edit, X, CheckCircle2, AlertCircle, DollarSign, CreditCard, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -35,6 +36,92 @@ export default function MyAppointmentsPage() {
   const [cancelReason, setCancelReason] = useState("")
   const [cancelError, setCancelError] = useState(false)
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null)
+
+  const handleDownloadDocument = async (citaId: number) => {
+    try {
+      const response = await fetch(`https://backend-smartsalud-a8ep.onrender.com/api/v1/historial/cita/${citaId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
+        },
+      })
+      if (!response.ok) {
+        toast.error("Error", { description: "No se pudo recuperar el historial de esta cita." })
+        return
+      }
+      
+      const data = await response.json()
+      
+      const labText = data.observaciones?.includes('Laboratorios:') ? data.observaciones.split('|')[0].replace('Laboratorios:', '').trim() : ''
+      const imgText = data.observaciones?.includes('Imágenes:') ? data.observaciones.split('Imágenes:')[1].trim() : ''
+
+      const doc = new jsPDF()
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(22)
+      doc.setTextColor(16, 185, 129)
+      doc.text("SMART SALUD", 20, 20)
+      
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(10)
+      doc.setTextColor(100)
+      doc.text("Documento Clínico Oficial", 20, 26)
+      doc.line(20, 30, 190, 30)
+
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(14)
+      doc.setTextColor(0)
+      doc.text("Datos de Atención", 20, 45)
+      
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "normal")
+      doc.text(`Paciente: ${data.pacienteNombre}`, 20, 55)
+      doc.text(`DNI: ${data.dniPaciente || 'No registrado'}`, 20, 62)
+      doc.text(`Médico: ${data.medicoNombre}`, 20, 69)
+      doc.text(`Especialidad: ${data.especialidadNombre}`, 20, 76)
+      doc.text(`Fecha de Atención: ${data.fecha}`, 20, 83)
+
+      doc.line(20, 90, 190, 90)
+
+      doc.setFont("helvetica", "bold")
+      doc.text("1. Diagnóstico Clínico", 20, 105)
+      doc.setFont("helvetica", "normal")
+      const diagLines = doc.splitTextToSize(data.diagnostico || 'Sin diagnóstico', 170)
+      doc.text(diagLines, 20, 112)
+
+      let currentY = 112 + (diagLines.length * 7) + 10
+
+      if (data.tratamiento) {
+        doc.setFont("helvetica", "bold")
+        doc.text("2. Receta Médica / Tratamiento", 20, currentY)
+        doc.setFont("helvetica", "normal")
+        const presLines = doc.splitTextToSize(data.tratamiento, 170)
+        doc.text(presLines, 20, currentY + 7)
+        currentY += (presLines.length * 7) + 15
+      }
+
+      if (labText || imgText) {
+        doc.setFont("helvetica", "bold")
+        doc.text("3. Órdenes / Exámenes", 20, currentY)
+        doc.setFont("helvetica", "normal")
+        if (labText) {
+          doc.text(`- Laboratorio: ${labText}`, 20, currentY + 7)
+          currentY += 7
+        }
+        if (imgText) {
+          doc.text(`- Imágenes: ${imgText}`, 20, currentY + 7)
+          currentY += 7
+        }
+      }
+
+      doc.save(`Historial_${data.pacienteNombre.replace(/\s+/g, '_')}_${data.fecha}.pdf`)
+      
+      toast.success("Documento Generado", {
+        description: "El PDF ha sido descargado exitosamente.",
+      })
+    } catch (error) {
+      console.error(error)
+      toast.error("Error", { description: "Ocurrió un error al descargar el PDF." })
+    }
+  }
 
   const handleReschedule = (appointmentId: string) => {
     toast.info('Función en desarrollo', {
@@ -337,9 +424,20 @@ export default function MyAppointmentsPage() {
                       {appointment.timeSlot} hrs • {appointment.specialty}
                     </p>
                   </div>
-                  <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">
-                    Completada
-                  </Badge>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">
+                      Completada
+                    </Badge>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleDownloadDocument(parseInt(appointment.id))}
+                      className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Descargar PDF
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
