@@ -51,12 +51,15 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
   const [imagingText, setImagingText] = useState("")
 
   useEffect(() => {
-    if (!user?.token) return;
+    if (!user) return;
+    
+    const token = localStorage.getItem('smartSaludToken');
+    if (!token) return;
 
     const fetchConsultas = async () => {
       try {
         const res = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/medicos/pacientes", {
-          headers: { Authorization: `Bearer ${user.token}` },
+          headers: { Authorization: `Bearer ${token}` },
           cache: "no-store"
         });
         if (res.ok) {
@@ -81,7 +84,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     const fetchHistorial = async () => {
       try {
         const res = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/medicos/citas", {
-          headers: { Authorization: `Bearer ${user.token}` },
+          headers: { Authorization: `Bearer ${token}` },
           cache: "no-store"
         });
         if (res.ok) {
@@ -136,7 +139,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${user?.token}`,
+          Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
         },
         body: JSON.stringify({
           citaId: attendingApt!.id,
