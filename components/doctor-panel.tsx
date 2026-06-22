@@ -125,6 +125,91 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     setLabResultText("")
     setImagingText("")
   }
+  const handleDownloadDocument = async (citaId: number) => {
+    try {
+      const response = await fetch(`https://backend-smartsalud-a8ep.onrender.com/api/v1/historial/cita/${citaId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
+        },
+      })
+      if (!response.ok) {
+        toast.error("Error", { description: "No se pudo recuperar el historial de esta cita." })
+        return
+      }
+      
+      const data = await response.json()
+      
+      const labText = data.observaciones?.includes('Laboratorios:') ? data.observaciones.split('|')[0].replace('Laboratorios:', '').trim() : ''
+      const imgText = data.observaciones?.includes('Imágenes:') ? data.observaciones.split('Imágenes:')[1].trim() : ''
+
+      const doc = new jsPDF()
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(22)
+      doc.setTextColor(16, 185, 129)
+      doc.text("SMART SALUD", 20, 20)
+      
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(10)
+      doc.setTextColor(100)
+      doc.text("Documento Clínico Oficial", 20, 26)
+      doc.line(20, 30, 190, 30)
+
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(14)
+      doc.setTextColor(0)
+      doc.text("Datos de Atención", 20, 45)
+      
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "normal")
+      doc.text(`Paciente: ${data.pacienteNombre}`, 20, 55)
+      doc.text(`DNI: ${data.dniPaciente || 'No registrado'}`, 20, 62)
+      doc.text(`Médico: ${data.medicoNombre}`, 20, 69)
+      doc.text(`Especialidad: ${data.especialidadNombre}`, 20, 76)
+      doc.text(`Fecha de Atención: ${data.fecha}`, 20, 83)
+
+      doc.line(20, 90, 190, 90)
+
+      doc.setFont("helvetica", "bold")
+      doc.text("1. Diagnóstico Clínico", 20, 105)
+      doc.setFont("helvetica", "normal")
+      const diagLines = doc.splitTextToSize(data.diagnostico || 'Sin diagnóstico', 170)
+      doc.text(diagLines, 20, 112)
+
+      let currentY = 112 + (diagLines.length * 7) + 10
+
+      if (data.tratamiento) {
+        doc.setFont("helvetica", "bold")
+        doc.text("2. Receta Médica / Tratamiento", 20, currentY)
+        doc.setFont("helvetica", "normal")
+        const presLines = doc.splitTextToSize(data.tratamiento, 170)
+        doc.text(presLines, 20, currentY + 7)
+        currentY += (presLines.length * 7) + 15
+      }
+
+      if (labText || imgText) {
+        doc.setFont("helvetica", "bold")
+        doc.text("3. Órdenes / Exámenes", 20, currentY)
+        doc.setFont("helvetica", "normal")
+        if (labText) {
+          doc.text(`- Laboratorio: ${labText}`, 20, currentY + 7)
+          currentY += 7
+        }
+        if (imgText) {
+          doc.text(`- Imágenes: ${imgText}`, 20, currentY + 7)
+          currentY += 7
+        }
+      }
+
+      doc.save(`Historial_${data.pacienteNombre.replace(/\s+/g, '_')}_${data.fecha}.pdf`)
+      
+      toast.success("Documento Generado", {
+        description: "El PDF ha sido descargado exitosamente.",
+      })
+    } catch (error) {
+      console.error(error)
+      toast.error("Error", { description: "Ocurrió un error al descargar el PDF." })
+    }
+  }
 
   const handleSaveAttention = async () => {
     if (!diagnosis) {
@@ -542,6 +627,14 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
                         <h5 className="font-bold text-gray-900 truncate">Paciente: {cita.patientName}</h5>
                         <p className="text-xs text-red-500 font-semibold uppercase tracking-wider mt-1">{cita.status}</p>
                         <p className="text-xs text-gray-400 mt-2">Fecha: {cita.time}</p>
+                        {cita.status === "ATENDIDO" && (
+                          <button
+                            onClick={() => handleDownloadDocument(cita.id)}
+                            className="mt-3 text-sm font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors w-full flex items-center justify-center gap-2"
+                          >
+                            <FileText className="w-4 h-4" /> Descargar Documento
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
