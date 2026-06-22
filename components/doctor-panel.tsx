@@ -86,7 +86,17 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
         });
         if (res.ok) {
           const data = await res.json();
-          setPatientHistoryDocs(data);
+          const mapped = data.map((d: any) => ({
+            id: d.id,
+            patientName: d.pacienteNombre || "Paciente",
+            email: "N/A",
+            time: `${d.fecha} ${d.hora}`,
+            status: d.estado,
+            specialty: d.especialidadNombre || "Especialidad",
+            age: "Adulto",
+            motive: d.tipoConsulta || "Consulta"
+          }));
+          setPatientHistoryDocs(mapped);
         }
       } catch (error) {
         console.error("Error fetching historial", error);
@@ -105,7 +115,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     averageRating: "4.9",
   }
 
-  const handleRegisterAttention = (apt: typeof initialDoctorAppointments[0]) => {
+  const handleRegisterAttention = (apt: any) => {
     setAttendingApt(apt)
     setDiagnosis("")
     setPrescriptionText("")
@@ -208,6 +218,9 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
       setDoctorApts(prev =>
         prev.map(a => (a.id === attendingApt!.id ? { ...a, status: "ATENDIDO" } : a))
       )
+      setPatientHistoryDocs(prev =>
+        prev.map(a => (a.id === attendingApt!.id ? { ...a, status: "ATENDIDO" } : a))
+      )
 
       toast.success("¡Atención Médica Registrada!", {
         description: `Se guardó el historial y se generó el PDF clínico para ${attendingApt!.patientName}.`,
@@ -224,10 +237,14 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     a.motive.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-
+  const filteredHistoryApts = patientHistoryDocs.filter(a =>
+    a.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    a.motive.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   const tabs = [
     { id: "consultations", label: "Consultas del Día", icon: ClipboardList },
+    { id: "all-appointments", label: "Todas las Citas", icon: Calendar },
     { id: "patients", label: "Historial de Pacientes", icon: Users },
     { id: "stats", label: "Desempeño y Estadísticas", icon: Activity },
   ]
@@ -271,7 +288,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
               <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
                 <Users className="w-5 h-5 text-emerald-600" />
               </div>
-              <p className="text-sm text-gray-500">Pacientes Asignados</p>
+              <p className="text-sm text-gray-500">Total de Citas</p>
             </div>
             <p className="text-3xl font-bold text-gray-900">{stats.totalPatients}</p>
             <p className="text-sm text-emerald-600 mt-1">4 nuevos este mes</p>
@@ -316,7 +333,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
+              onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 px-6 py-3.5 rounded-xl whitespace-nowrap font-semibold transition-all ${
                 activeTab === tab.id
                   ? "bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-lg shadow-emerald-100"
@@ -353,58 +370,143 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
               </div>
 
               <div className="divide-y divide-gray-100">
-                {filteredApts.map((apt) => (
-                  <div key={apt.id} className="p-6 hover:bg-gray-50/30 transition-colors">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <h4 className="font-bold text-gray-900 text-lg">{apt.patientName}</h4>
-                          <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full">{apt.age}</span>
-                          <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full">{apt.time}</span>
-                          
+                {filteredApts.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">No hay citas para hoy o no coinciden con tu búsqueda.</div>
+                ) : (
+                  filteredApts.map((apt) => (
+                    <div key={apt.id} className="p-6 hover:bg-gray-50/30 transition-colors">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <h4 className="font-bold text-gray-900 text-lg">{apt.patientName}</h4>
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full">{apt.age}</span>
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full">{apt.time}</span>
+                            
+                            {apt.status === "ATENDIDO" ? (
+                              <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
+                                <Check className="w-3.5 h-3.5 mr-1" />
+                                Atendido
+                              </Badge>
+                            ) : apt.status === "CONFIRMADO" ? (
+                              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
+                                Confirmada
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200">
+                                <Clock className="w-3.5 h-3.5 mr-1" />
+                                {apt.status}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            <strong className="text-gray-900 font-semibold">Motivo de consulta: </strong> 
+                            {apt.motive}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Correo electrónico: {apt.email} • {apt.specialty}
+                          </p>
+                        </div>
+
+                        <div className="flex-shrink-0">
                           {apt.status === "ATENDIDO" ? (
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
-                              <Check className="w-3.5 h-3.5 mr-1" />
-                              Atendido
-                            </Badge>
-                          ) : apt.status === "CONFIRMADO" ? (
-                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
-                              Confirmada
-                            </Badge>
+                            <button disabled className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-400">
+                              Atención Completada
+                            </button>
                           ) : (
-                            <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200">
-                              <Clock className="w-3.5 h-3.5 mr-1" />
-                              {apt.status}
-                            </Badge>
+                            <button
+                              onClick={() => handleRegisterAttention(apt)}
+                              className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white"
+                            >
+                              <Stethoscope className="w-4 h-4 mr-2" />
+                              Atender Paciente
+                            </button>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                          <strong className="text-gray-900 font-semibold">Motivo de consulta: </strong> 
-                          {apt.motive}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Correo electrónico: {apt.email} • {apt.specialty}
-                        </p>
-                      </div>
-
-                      <div className="flex-shrink-0">
-                        {apt.status === "ATENDIDO" ? (
-                          <Button disabled variant="outline" className="border-gray-200 text-gray-400">
-                            Atención Completada
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={() => handleRegisterAttention(apt)}
-                            className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white font-semibold"
-                          >
-                            <Stethoscope className="w-4 h-4 mr-2" />
-                            Atender Paciente
-                          </Button>
-                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ALL APPOINTMENTS TAB */}
+          {activeTab === "all-appointments" && (
+            <div>
+              <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-gray-50/50">
+                <div>
+                  <h3 className="font-bold text-gray-900 text-lg">Todas las Citas</h3>
+                  <p className="text-sm text-gray-500">Lista completa de todas tus citas asignadas (pasadas y futuras)</p>
+                </div>
+                <div className="relative w-full sm:max-w-xs">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por paciente o motivo..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="divide-y divide-gray-100">
+                {filteredHistoryApts.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">No tienes citas registradas.</div>
+                ) : (
+                  filteredHistoryApts.map((apt) => (
+                    <div key={apt.id} className="p-6 hover:bg-gray-50/30 transition-colors">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <h4 className="font-bold text-gray-900 text-lg">{apt.patientName}</h4>
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full">{apt.age}</span>
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full">{apt.time}</span>
+                            
+                            {apt.status === "ATENDIDO" ? (
+                              <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
+                                <Check className="w-3.5 h-3.5 mr-1" />
+                                Atendido
+                              </Badge>
+                            ) : apt.status === "CONFIRMADO" ? (
+                              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
+                                Confirmada
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200">
+                                <Clock className="w-3.5 h-3.5 mr-1" />
+                                {apt.status}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            <strong className="text-gray-900 font-semibold">Motivo de consulta: </strong> 
+                            {apt.motive}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Correo electrónico: {apt.email} • {apt.specialty}
+                          </p>
+                        </div>
+
+                        <div className="flex-shrink-0">
+                          {apt.status === "ATENDIDO" ? (
+                            <button disabled className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-400">
+                              Atención Completada
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRegisterAttention(apt)}
+                              className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white"
+                            >
+                              <Stethoscope className="w-4 h-4 mr-2" />
+                              Atender Paciente
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -421,18 +523,6 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
                 </p>
               </div>
 
-              {/* Patient directory search */}
-              <div className="flex items-center gap-4 p-4 border border-gray-100 rounded-xl mb-6 bg-gray-50/50">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-blue-400 flex items-center justify-center text-white font-bold text-lg">
-                  PD
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-gray-900">Paciente Demo</h4>
-                  <p className="text-xs text-gray-500">paciente@smartsalud.com • DNI: 72123456 • 28 años</p>
-                </div>
-                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Paciente Activo</Badge>
-              </div>
-
               <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-emerald-600" />
                 Historial Histórico Completo ({patientHistoryDocs.length} Citas)
@@ -446,9 +536,9 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
                         <FileText className="w-6 h-6" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="font-bold text-gray-900 truncate">Paciente: {cita.pacienteNombre}</h5>
-                        <p className="text-xs text-red-500 font-semibold uppercase tracking-wider mt-1">{cita.estado}</p>
-                        <p className="text-xs text-gray-400 mt-2">Fecha: {cita.fecha} {cita.hora}</p>
+                        <h5 className="font-bold text-gray-900 truncate">Paciente: {cita.patientName}</h5>
+                        <p className="text-xs text-red-500 font-semibold uppercase tracking-wider mt-1">{cita.status}</p>
+                        <p className="text-xs text-gray-400 mt-2">Fecha: {cita.time}</p>
                       </div>
                     </div>
                   </div>
