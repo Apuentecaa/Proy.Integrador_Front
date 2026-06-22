@@ -114,10 +114,10 @@ export default function RegisterPage() {
                     id="dni"
                     placeholder="12345678"
                     value={formData.dni}
-                    onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, dni: e.target.value.replace(/\D/g, '').slice(0, 8) })}
                     className="pl-10"
                     required
-                    maxLength={15}
+                    maxLength={8}
                   />
                 </div>
               </div>
@@ -145,11 +145,12 @@ export default function RegisterPage() {
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+51 987 654 321"
+                    placeholder="987654321"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
                     className="pl-10"
                     required
+                    maxLength={15}
                   />
                 </div>
               </div>
