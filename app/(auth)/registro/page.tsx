@@ -19,6 +19,7 @@ export default function RegisterPage() {
     name: '',
     email: '',
     phone: '',
+    dni: '',
     password: '',
     confirmPassword: '',
     acceptTerms: false,
@@ -41,7 +42,7 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      await register(formData.name, formData.email, formData.phone, formData.password)
+      await register(formData.name, formData.email, formData.phone, formData.password, formData.dni)
       toast.success('¡Cuenta creada exitosamente!', {
         description: 'Bienvenido a Smart Salud',
       })
@@ -101,6 +102,22 @@ export default function RegisterPage() {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="pl-10"
                     required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="dni">DNI</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="dni"
+                    placeholder="12345678"
+                    value={formData.dni}
+                    onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                    className="pl-10"
+                    required
+                    maxLength={15}
                   />
                 </div>
               </div>

@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   login: (email: string, password: string, role?: Role) => Promise<Role | void>
-  register: (name: string, email: string, phone: string, password: string) => Promise<void>
+  register: (name: string, email: string, phone: string, password: string, dni: string) => Promise<void>
   logout: () => void
 }
 
@@ -89,14 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const register = async (name: string, email: string, phone: string, password: string) => {
+  const register = async (name: string, email: string, phone: string, password: string, dni: string) => {
     try {
+      const parts = name.trim().split(' ')
+      const nombres = parts[0] || name
+      const apellidos = parts.slice(1).join(' ') || '.' // Require not null
+      
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name, email, phone, password, role: 'patient' })
+        body: JSON.stringify({ nombres, apellidos, email, telefono: phone, password, dni })
       })
 
       if (!response.ok) {

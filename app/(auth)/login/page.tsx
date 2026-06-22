@@ -50,23 +50,6 @@ export default function LoginPage() {
     }
   }
 
-  const fillCredentials = (role: Role) => {
-    let email = ''
-    if (role === 'super_admin') email = 'superadmin@vidasalud.pe'
-    if (role === 'admin') email = 'admin@vidasalud.com'
-    if (role === 'receptionist') email = 'recepcion@vidasalud.pe'
-    if (role === 'doctor') email = 'c.mendoza@vidasalud.pe'
-    if (role === 'patient') email = 'juan.perez@email.com'
-
-    setFormData({
-      ...formData,
-      email: email,
-      password: 'Password123'
-    })
-    
-    toast.info(`Credenciales de ${role} cargadas`)
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-emerald-50 via-blue-50 to-white">
       <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -101,66 +84,6 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            
-            {/* Quick Login Section for Development */}
-            <div className="mb-6 p-4 bg-slate-50 border rounded-lg">
-              <p className="text-xs text-muted-foreground font-semibold uppercase mb-3 text-center tracking-wider">
-                Acceso Rápido (Demo)
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
-                  onClick={() => fillCredentials('patient')}
-                  type="button"
-                >
-                  <UserCircle2 className="w-4 h-4" />
-                  <span className="text-[10px]">Paciente</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
-                  onClick={() => fillCredentials('doctor')}
-                  type="button"
-                >
-                  <Stethoscope className="w-4 h-4" />
-                  <span className="text-[10px]">Médico</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200"
-                  onClick={() => fillCredentials('receptionist')}
-                  type="button"
-                >
-                  <UserCircle2 className="w-4 h-4" />
-                  <span className="text-[10px]">Recepción</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
-                  onClick={() => fillCredentials('admin')}
-                  type="button"
-                >
-                  <UserCog className="w-4 h-4" />
-                  <span className="text-[10px]">Admin</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex flex-col h-auto py-2 gap-1 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                  onClick={() => fillCredentials('super_admin')}
-                  type="button"
-                >
-                  <UserCog className="w-4 h-4" />
-                  <span className="text-[10px]">S. Admin</span>
-                </Button>
-              </div>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Correo Electrónico</Label>
