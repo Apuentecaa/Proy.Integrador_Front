@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   ArrowLeft,
   Users,
@@ -20,11 +20,10 @@ import {
   PlusCircle,
   AlertCircle
 } from "lucide-react"
-import { useDocuments } from "@/contexts/documents-context"
-import { useAppointments } from "@/contexts/appointments-context"
-import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { jsPDF } from "jspdf"
 
 interface DoctorPanelProps {
   onBack: () => void
@@ -38,24 +37,69 @@ const initialDoctorAppointments = [
 ]
 
 export default function DoctorPanel({ onBack }: DoctorPanelProps) {
-  const { addDocument, documents } = useDocuments()
-  const { appointments, updateAppointment } = useAppointments()
-  const [activeTab, setActiveTab] = useState<"consultations" | "patients" | "documents" | "stats">("consultations")
-  const [doctorApts, setDoctorApts] = useState(initialDoctorAppointments)
+  const { user } = useAuth()
+  const [activeTab, setActiveTab] = useState<"consultations" | "patients" | "stats">("consultations")
+  const [doctorApts, setDoctorApts] = useState<any[]>([])
+  const [patientHistoryDocs, setPatientHistoryDocs] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   
   // States for attending patient
-  const [attendingApt, setAttendingApt] = useState<typeof initialDoctorAppointments[0] | null>(null)
+  const [attendingApt, setAttendingApt] = useState<any | null>(null)
   const [diagnosis, setDiagnosis] = useState("")
   const [prescriptionText, setPrescriptionText] = useState("")
   const [labResultText, setLabResultText] = useState("")
   const [imagingText, setImagingText] = useState("")
 
+  useEffect(() => {
+    if (!user?.token) return;
+
+    const fetchConsultas = async () => {
+      try {
+        const res = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/medicos/pacientes", {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const mapped = data.map((d: any) => ({
+            id: d.id,
+            patientName: d.pacienteNombre || "Paciente",
+            email: "N/A",
+            time: d.hora,
+            status: d.estado,
+            specialty: d.especialidad,
+            age: "Adulto",
+            motive: d.tipoConsulta || "Consulta"
+          }));
+          setDoctorApts(mapped);
+        }
+      } catch (error) {
+        console.error("Error fetching consultas", error);
+      }
+    };
+
+    const fetchHistorial = async () => {
+      try {
+        const res = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/medicos/citas", {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setPatientHistoryDocs(data);
+        }
+      } catch (error) {
+        console.error("Error fetching historial", error);
+      }
+    };
+
+    fetchConsultas();
+    fetchHistorial();
+  }, [user]);
+
   // Statistics
   const stats = {
-    totalPatients: 24,
-    consultationsToday: doctorApts.filter(a => a.status !== "Atendido").length,
-    completedToday: doctorApts.filter(a => a.status === "Atendido").length,
+    totalPatients: patientHistoryDocs.length,
+    consultationsToday: doctorApts.filter(a => a.status !== "ATENDIDO").length,
+    completedToday: doctorApts.filter(a => a.status === "ATENDIDO").length,
     averageRating: "4.9",
   }
 
@@ -67,7 +111,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     setImagingText("")
   }
 
-  const handleSaveAttention = () => {
+  const handleSaveAttention = async () => {
     if (!diagnosis) {
       toast.warning("Falta Diagnóstico", {
         description: "Por favor, escribe un diagnóstico para guardar la consulta médica.",
@@ -75,52 +119,102 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
       return
     }
 
-    // 1. Create prescription document if filled
-    if (prescriptionText) {
-      addDocument({
-        patientId: attendingApt!.email,
-        title: `Receta Médica - ${attendingApt!.specialty}`,
-        type: "prescription",
-        date: new Date().toISOString().split("T")[0],
-        url: "#",
-        createdBy: "Dr. Médico"
+    try {
+      const response = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/historial", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user?.token}`,
+        },
+        body: JSON.stringify({
+          citaId: attendingApt!.id,
+          diagnostico: diagnosis,
+          tratamiento: prescriptionText,
+          observaciones: `${labResultText ? 'Laboratorios: ' + labResultText : ''} ${imagingText ? '| Imágenes: ' + imagingText : ''}`.trim()
+        }),
       })
-    }
 
-    // 2. Create lab result document if filled
-    if (labResultText) {
-      addDocument({
-        patientId: attendingApt!.email,
-        title: `Resultado de Laboratorio - ${labResultText}`,
-        type: "lab_result",
-        date: new Date().toISOString().split("T")[0],
-        url: "#",
-        createdBy: "Dr. Médico"
+      if (!response.ok) throw new Error("Error al guardar historial")
+
+      // Generar PDF
+      const doc = new jsPDF()
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(22)
+      doc.setTextColor(16, 185, 129) // Emerald-500
+      doc.text("SMART SALUD", 20, 20)
+      
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(10)
+      doc.setTextColor(100)
+      doc.text("Documento Clínico Oficial", 20, 26)
+      doc.line(20, 30, 190, 30)
+
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(14)
+      doc.setTextColor(0)
+      doc.text("Datos de Atención", 20, 45)
+      
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "normal")
+      doc.text(`Paciente: ${attendingApt!.patientName}`, 20, 55)
+      doc.text(`Médico: Dr. ${user?.name}`, 20, 62)
+      doc.text(`Especialidad: ${attendingApt!.specialty}`, 20, 69)
+      doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 20, 76)
+      doc.text(`Motivo: ${attendingApt!.motive}`, 20, 83)
+
+      doc.line(20, 90, 190, 90)
+
+      doc.setFont("helvetica", "bold")
+      doc.text("1. Diagnóstico Clínico", 20, 105)
+      doc.setFont("helvetica", "normal")
+      const diagLines = doc.splitTextToSize(diagnosis, 170)
+      doc.text(diagLines, 20, 112)
+
+      let currentY = 112 + (diagLines.length * 7) + 10
+
+      if (prescriptionText) {
+        doc.setFont("helvetica", "bold")
+        doc.text("2. Receta Médica / Tratamiento", 20, currentY)
+        doc.setFont("helvetica", "normal")
+        const presLines = doc.splitTextToSize(prescriptionText, 170)
+        doc.text(presLines, 20, currentY + 7)
+        currentY += (presLines.length * 7) + 15
+      }
+
+      if (labResultText || imagingText) {
+        doc.setFont("helvetica", "bold")
+        doc.text("3. Órdenes / Exámenes", 20, currentY)
+        doc.setFont("helvetica", "normal")
+        if (labResultText) {
+          doc.text(`- Laboratorio: ${labResultText}`, 20, currentY + 7)
+          currentY += 7
+        }
+        if (imagingText) {
+          doc.text(`- Imágenes: ${imagingText}`, 20, currentY + 7)
+          currentY += 7
+        }
+      }
+
+      doc.line(20, 260, 190, 260)
+      doc.setFontSize(10)
+      doc.setTextColor(150)
+      doc.text("Firma del Médico", 90, 265)
+      doc.text(`Dr. ${user?.name}`, 90, 270)
+
+      doc.save(`Documento_Clinico_${attendingApt!.patientName.replace(/\s+/g, '_')}.pdf`)
+
+      setDoctorApts(prev =>
+        prev.map(a => (a.id === attendingApt!.id ? { ...a, status: "ATENDIDO" } : a))
+      )
+
+      toast.success("¡Atención Médica Registrada!", {
+        description: `Se guardó el historial y se generó el PDF clínico para ${attendingApt!.patientName}.`,
       })
+
+      setAttendingApt(null)
+    } catch (error) {
+      toast.error("Error", { description: "Ocurrió un error al registrar la atención" })
     }
-
-    // 3. Create imaging document if filled
-    if (imagingText) {
-      addDocument({
-        patientId: attendingApt!.email,
-        title: `Examen de Imagen - ${imagingText}`,
-        type: "imaging",
-        date: new Date().toISOString().split("T")[0],
-        url: "#",
-        createdBy: "Dr. Médico"
-      })
-    }
-
-    // 4. Mark appointment as completed
-    setDoctorApts(prev =>
-      prev.map(a => (a.id === attendingApt!.id ? { ...a, status: "Atendido" } : a))
-    )
-
-    toast.success("¡Atención Médica Registrada!", {
-      description: `Se han generado los documentos clínicos para ${attendingApt!.patientName}.`,
-    })
-
-    setAttendingApt(null)
   }
 
   const filteredApts = doctorApts.filter(a =>
@@ -128,9 +222,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     a.motive.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const patientHistoryDocs = documents.filter(doc =>
-    doc.patientId === "paciente@smartsalud.com" || doc.patientId === "user-1"
-  )
+
 
   const tabs = [
     { id: "consultations", label: "Consultas del Día", icon: ClipboardList },
@@ -157,7 +249,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold">Portal del Médico</h1>
-                  <p className="text-sm text-white/80">Dr. Médico • Consultorio Medicina General</p>
+                  <p className="text-sm text-white/80">Dr. {user?.name}</p>
                 </div>
               </div>
             </div>
@@ -268,12 +360,12 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
                           <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full">{apt.age}</span>
                           <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full">{apt.time}</span>
                           
-                          {apt.status === "Atendido" ? (
+                          {apt.status === "ATENDIDO" ? (
                             <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
                               <Check className="w-3.5 h-3.5 mr-1" />
                               Atendido
                             </Badge>
-                          ) : apt.status === "Confirmada" ? (
+                          ) : apt.status === "CONFIRMADO" ? (
                             <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
                               Confirmada
                             </Badge>
@@ -294,7 +386,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
                       </div>
 
                       <div className="flex-shrink-0">
-                        {apt.status === "Atendido" ? (
+                        {apt.status === "ATENDIDO" ? (
                           <Button disabled variant="outline" className="border-gray-200 text-gray-400">
                             Atención Completada
                           </Button>
@@ -341,20 +433,20 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
 
               <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-emerald-600" />
-                Documentos Clínicos Registrados ({patientHistoryDocs.length})
+                Historial Histórico Completo ({patientHistoryDocs.length} Citas)
               </h4>
 
               <div className="grid md:grid-cols-2 gap-4">
-                {patientHistoryDocs.map((doc) => (
-                  <div key={doc.id} className="p-5 border border-gray-100 rounded-2xl bg-white hover:shadow-md transition-shadow">
+                {patientHistoryDocs.map((cita) => (
+                  <div key={cita.id} className="p-5 border border-gray-100 rounded-2xl bg-white hover:shadow-md transition-shadow">
                     <div className="flex items-start gap-4">
                       <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
                         <FileText className="w-6 h-6" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="font-bold text-gray-900 truncate" title={doc.title}>{doc.title}</h5>
-                        <p className="text-xs text-red-500 font-semibold uppercase tracking-wider mt-1">{doc.type.replace('_', ' ')}</p>
-                        <p className="text-xs text-gray-400 mt-2">Cargado por: {doc.createdBy} • Fecha: {doc.date}</p>
+                        <h5 className="font-bold text-gray-900 truncate">Paciente: {cita.pacienteNombre}</h5>
+                        <p className="text-xs text-red-500 font-semibold uppercase tracking-wider mt-1">{cita.estado}</p>
+                        <p className="text-xs text-gray-400 mt-2">Fecha: {cita.fecha} {cita.hora}</p>
                       </div>
                     </div>
                   </div>
@@ -426,7 +518,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Consola Clínica: Registro de Atención</h3>
-                  <p className="text-xs text-gray-500">Paciente: {attendingApt.patientName} • {attendingApt.age}</p>
+                  <p className="text-xs text-gray-500">Paciente: {attendingApt.patientName}</p>
                 </div>
               </div>
               <button
