@@ -56,7 +56,8 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     const fetchConsultas = async () => {
       try {
         const res = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/medicos/pacientes", {
-          headers: { Authorization: `Bearer ${user.token}` }
+          headers: { Authorization: `Bearer ${user.token}` },
+          cache: "no-store"
         });
         if (res.ok) {
           const data = await res.json();
@@ -80,7 +81,8 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     const fetchHistorial = async () => {
       try {
         const res = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/medicos/citas", {
-          headers: { Authorization: `Bearer ${user.token}` }
+          headers: { Authorization: `Bearer ${user.token}` },
+          cache: "no-store"
         });
         if (res.ok) {
           const data = await res.json();
