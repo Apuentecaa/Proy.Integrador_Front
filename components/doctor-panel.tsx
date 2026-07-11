@@ -43,12 +43,25 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
   const [patientHistoryDocs, setPatientHistoryDocs] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   
-  // States for attending patient
   const [attendingApt, setAttendingApt] = useState<any | null>(null)
   const [diagnosis, setDiagnosis] = useState("")
-  const [prescriptionText, setPrescriptionText] = useState("")
+  const [recetas, setRecetas] = useState<any[]>([])
   const [labResultText, setLabResultText] = useState("")
   const [imagingText, setImagingText] = useState("")
+
+  const handleAddReceta = () => {
+    setRecetas([...recetas, { medicamentoNombre: "", duracion: "", instrucciones: "", notas: "", manana: false, tarde: false, noche: false }])
+  }
+
+  const handleUpdateReceta = (index: number, field: string, value: any) => {
+    const newRecetas = [...recetas]
+    newRecetas[index][field] = value
+    setRecetas(newRecetas)
+  }
+
+  const handleRemoveReceta = (index: number) => {
+    setRecetas(recetas.filter((_, i) => i !== index))
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -121,7 +134,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
   const handleRegisterAttention = (apt: any) => {
     setAttendingApt(apt)
     setDiagnosis("")
-    setPrescriptionText("")
+    setRecetas([])
     setLabResultText("")
     setImagingText("")
   }
@@ -220,6 +233,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
     }
 
     try {
+      const tratamientoText = recetas.map(r => `${r.medicamentoNombre} por ${r.duracion}. ${r.instrucciones}`).join('\n');
       const response = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/historial", {
         method: "POST",
         headers: {
@@ -229,8 +243,9 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
         body: JSON.stringify({
           citaId: attendingApt!.id,
           diagnostico: diagnosis,
-          tratamiento: prescriptionText,
-          observaciones: `${labResultText ? 'Laboratorios: ' + labResultText : ''} ${imagingText ? '| Imágenes: ' + imagingText : ''}`.trim()
+          tratamiento: tratamientoText,
+          observaciones: `${labResultText ? 'Laboratorios: ' + labResultText : ''} ${imagingText ? '| Imágenes: ' + imagingText : ''}`.trim(),
+          recetas: recetas
         }),
       })
 
@@ -272,11 +287,11 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
 
       let currentY = 112 + (diagLines.length * 7) + 10
 
-      if (prescriptionText) {
+      if (tratamientoText) {
         doc.setFont("helvetica", "bold")
         doc.text("2. Receta Médica / Tratamiento", 20, currentY)
         doc.setFont("helvetica", "normal")
-        const presLines = doc.splitTextToSize(prescriptionText, 170)
+        const presLines = doc.splitTextToSize(tratamientoText, 170)
         doc.text(presLines, 20, currentY + 7)
         currentY += (presLines.length * 7) + 15
       }
@@ -730,17 +745,31 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                  <PlusCircle className="w-4 h-4 text-emerald-600" />
-                  2. Generar Receta Médica (Opcional)
-                </label>
-                <textarea
-                  value={prescriptionText}
-                  onChange={(e) => setPrescriptionText(e.target.value)}
-                  placeholder="Ej: Amoxicilina 500mg - 1 tableta cada 8 horas por 7 días..."
-                  rows={2}
-                  className="w-full p-4 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <PlusCircle className="w-4 h-4 text-emerald-600" />
+                    2. Generar Receta Médica (Opcional)
+                  </label>
+                  <button onClick={handleAddReceta} className="text-sm text-emerald-600 font-semibold hover:text-emerald-700">+ Añadir Medicamento</button>
+                </div>
+                {recetas.map((receta, index) => (
+                  <div key={index} className="mb-4 p-4 border border-emerald-100 bg-emerald-50/50 rounded-xl">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-semibold text-emerald-800">Medicamento {index + 1}</h4>
+                      <button onClick={() => handleRemoveReceta(index)} className="text-red-500 hover:text-red-700"><X className="w-4 h-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <input type="text" placeholder="Nombre (ej. Paracetamol 500mg)" className="w-full p-2 border rounded-lg focus:outline-emerald-500" value={receta.medicamentoNombre} onChange={(e) => handleUpdateReceta(index, 'medicamentoNombre', e.target.value)} />
+                      <input type="text" placeholder="Duración (ej. 5 días)" className="w-full p-2 border rounded-lg focus:outline-emerald-500" value={receta.duracion} onChange={(e) => handleUpdateReceta(index, 'duracion', e.target.value)} />
+                    </div>
+                    <input type="text" placeholder="Instrucciones (ej. Tomar 1 pastilla cada 8 horas)" className="w-full p-2 border rounded-lg focus:outline-emerald-500 mb-3" value={receta.instrucciones} onChange={(e) => handleUpdateReceta(index, 'instrucciones', e.target.value)} />
+                    <div className="flex items-center gap-4 text-sm text-gray-700">
+                      <label className="flex items-center gap-1"><input type="checkbox" checked={receta.manana} onChange={(e) => handleUpdateReceta(index, 'manana', e.target.checked)} /> Mañana</label>
+                      <label className="flex items-center gap-1"><input type="checkbox" checked={receta.tarde} onChange={(e) => handleUpdateReceta(index, 'tarde', e.target.checked)} /> Tarde</label>
+                      <label className="flex items-center gap-1"><input type="checkbox" checked={receta.noche} onChange={(e) => handleUpdateReceta(index, 'noche', e.target.checked)} /> Noche</label>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">

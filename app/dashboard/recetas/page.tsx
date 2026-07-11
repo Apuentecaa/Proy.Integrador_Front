@@ -1,45 +1,42 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Pill, Clock, Info, Sun, Sunset, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
 export default function PrescriptionsPage() {
-  const medications = [
-    {
-      id: 1,
-      name: 'Losartán 50mg',
-      doctor: 'Dr. González',
-      startDate: '2026-01-15',
-      duration: '6 meses',
-      instructions: 'Tomar 1 comprimido cada 24 horas',
-      schedule: { morning: true, afternoon: false, night: false },
-      notes: 'Tomar con el estómago vacío, preferiblemente en la mañana.',
-    },
-    {
-      id: 2,
-      name: 'Omeprazol 20mg',
-      doctor: 'Dr. Rodríguez',
-      startDate: '2026-02-01',
-      duration: '3 meses',
-      instructions: 'Tomar 1 cápsula antes del desayuno',
-      schedule: { morning: true, afternoon: false, night: false },
-      notes: 'Tomar 30 minutos antes de la primera comida del día.',
-    },
-    {
-      id: 3,
-      name: 'Simvastatina 20mg',
-      doctor: 'Dr. González',
-      startDate: '2026-01-15',
-      duration: 'Permanente',
-      instructions: 'Tomar 1 comprimido por la noche',
-      schedule: { morning: false, afternoon: false, night: true },
-      notes: 'Tomar antes de dormir. Evitar consumo excesivo de alcohol.',
-    },
-  ]
+  const [medications, setMedications] = useState<any[]>([])
+  const [selectedMed, setSelectedMed] = useState<any | null>(null)
 
-  const [selectedMed, setSelectedMed] = useState<typeof medications[0] | null>(null)
+  useEffect(() => {
+    const fetchRecetas = async () => {
+      try {
+        const response = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/recetas/mis-recetas", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const mapped = data.map((d: any) => ({
+            id: d.id,
+            name: d.medicamentoNombre,
+            doctor: d.medicoNombre,
+            startDate: d.fechaEmision,
+            duration: d.duracion,
+            instructions: d.instrucciones,
+            schedule: { morning: d.manana, afternoon: d.tarde, night: d.noche },
+            notes: d.notas || 'Sin notas adicionales.',
+          }));
+          setMedications(mapped);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetchRecetas();
+  }, [])
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -56,11 +53,16 @@ export default function PrescriptionsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {medications.map((med) => (
-          <div
-            key={med.id}
-            className="bg-white rounded-xl border border-gray-100 p-5 space-y-4 shadow-sm hover:shadow-md transition-all hover:border-purple-200"
-          >
+        {medications.length === 0 ? (
+          <div className="col-span-full p-8 text-center text-gray-500 bg-white rounded-xl border border-gray-100">
+            No tienes recetas médicas activas.
+          </div>
+        ) : (
+          medications.map((med) => (
+            <div
+              key={med.id}
+              className="bg-white rounded-xl border border-gray-100 p-5 space-y-4 shadow-sm hover:shadow-md transition-all hover:border-purple-200"
+            >
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 mb-1">{med.name}</h3>
@@ -207,7 +209,7 @@ export default function PrescriptionsPage() {
               </DialogContent>
             </Dialog>
           </div>
-        ))}
+        )))}
       </div>
     </div>
   )
