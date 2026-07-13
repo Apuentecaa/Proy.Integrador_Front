@@ -14,7 +14,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     const fetchRecetas = async () => {
       try {
-        const response = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/recetas/mis-recetas", {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}`}/api/v1/recetas/mis-recetas`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
           },

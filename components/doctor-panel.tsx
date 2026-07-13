@@ -71,7 +71,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
 
     const fetchConsultas = async () => {
       try {
-        const res = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/medicos/pacientes", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/medicos/pacientes`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store"
         });
@@ -96,7 +96,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
 
     const fetchHistorial = async () => {
       try {
-        const res = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/medicos/citas", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/medicos/citas`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store"
         });
@@ -140,7 +140,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
   }
   const handleDownloadDocument = async (citaId: number) => {
     try {
-      const response = await fetch(`https://backend-smartsalud-a8ep.onrender.com/api/v1/historial/cita/${citaId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/historial/cita/${citaId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
         },
@@ -234,7 +234,7 @@ export default function DoctorPanel({ onBack }: DoctorPanelProps) {
 
     try {
       const tratamientoText = recetas.map(r => `${r.medicamentoNombre} por ${r.duracion}. ${r.instrucciones}`).join('\n');
-      const response = await fetch("https://backend-smartsalud-a8ep.onrender.com/api/v1/historial", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/historial`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

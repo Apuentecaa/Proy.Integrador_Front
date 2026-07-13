@@ -39,7 +39,7 @@ export default function MyAppointmentsPage() {
 
   const handleDownloadDocument = async (citaId: number) => {
     try {
-      const response = await fetch(`https://backend-smartsalud-a8ep.onrender.com/api/v1/historial/cita/${citaId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}`}/api/v1/historial/cita/${citaId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
         },
