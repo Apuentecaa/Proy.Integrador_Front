@@ -37,8 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string, role: Role = 'patient') => {
     try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com";
+      const endpointUrl = baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/login` : `${baseUrl}/api/v1/auth/login`;
+
       // Conexión al Backend de Spring Boot mediante REST API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/auth/login`, {
+      const response = await fetch(endpointUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,7 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nombres = parts[0] || name
       const apellidos = parts.slice(1).join(' ') || '.' // Require not null
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/auth/register`, {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com";
+      const endpointUrl = baseUrl.endsWith('/api/v1') ? `${baseUrl}/auth/register` : `${baseUrl}/api/v1/auth/register`;
+      
+      const response = await fetch(endpointUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

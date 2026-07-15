@@ -1,4 +1,5 @@
-export const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`;
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com";
+export const API_BASE_URL = baseUrl.endsWith('/api/v1') ? baseUrl : `${baseUrl}/api/v1`;
 
 export async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
   const token = localStorage.getItem('smartSaludToken');
