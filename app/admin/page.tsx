@@ -1,5 +1,7 @@
 "use client"
 
+import { API_BASE_URL } from "@/lib/api-client";
+
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Header from "@/components/header"

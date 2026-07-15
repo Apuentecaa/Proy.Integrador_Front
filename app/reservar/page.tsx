@@ -1,5 +1,7 @@
 "use client"
 
+import { API_BASE_URL } from "@/lib/api-client";
+
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
