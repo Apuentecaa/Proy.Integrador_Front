@@ -48,7 +48,7 @@ export function DoctorsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/medicos`)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/medicos`)
         if (response.ok) {
           const data = await response.json()
           const mappedDoctors: Doctor[] = data.map((medico: any) => ({

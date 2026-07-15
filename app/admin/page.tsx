@@ -21,10 +21,11 @@ import {
   Star,
   X,
   Save,
-  ArrowLeft
+  ArrowLeft,
+  User,
 } from "lucide-react"
 
-type TabType = "medicos" | "usuarios" | "citas" | "reportes" | "configuracion"
+type TabType = "medicos" | "usuarios" | "pacientes" | "horarios" | "citas" | "reportes" | "configuracion"
 
 interface Usuario {
   id: number
@@ -34,6 +35,18 @@ interface Usuario {
   email: string
   telefono: string
   rolNombre: string
+}
+
+interface Paciente {
+  id: number
+  dni: string
+  nombres: string
+  apellidos: string
+  email: string
+  telefono: string
+  direccion?: string
+  activo: boolean
+  fechaRegistro: string
 }
 
 interface Medico {
@@ -81,6 +94,21 @@ interface Cita {
 const initialMedicos: Medico[] = []
 const initialCitas: Cita[] = []
 
+interface HorarioMedico {
+  id: number
+  fecha: string
+  horaInicio: string
+  horaFin: string
+  disponible: boolean
+  medicoId: number
+  medicoNombre: string
+  sedeId: number
+  sedeNombre: string
+  salaId: number | null
+  salaNombre: string | null
+  duracionSlot: number
+}
+
 const especialidades = ["Cardiologia", "Neurologia", "Oftalmologia", "Traumatologia", "Pediatria", "Medicina General", "Medicina Interna", "Dermatologia"]
 const sedes = ["San Isidro", "Miraflores", "Surco"]
 
@@ -89,6 +117,7 @@ export default function AdminPage() {
   const [reportFilter, setReportFilter] = useState("todos")
   const [medicos, setMedicos] = useState<Medico[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [pacientes, setPacientes] = useState<Paciente[]>([])
   const [citas, setCitas] = useState<Cita[]>(initialCitas)
   const [especialidadesDB, setEspecialidadesDB] = useState<Especialidad[]>([])
   const [sedesDB, setSedesDB] = useState<Sede[]>([])
@@ -126,18 +155,42 @@ export default function AdminPage() {
     dni: "", nombres: "", apellidos: "", email: "", telefono: "", password: "", rolNombre: "RECEPCION"
   })
 
+  // Paciente Edit States
+  const [showPacienteModal, setShowPacienteModal] = useState(false)
+  const [editingPacienteId, setEditingPacienteId] = useState<number | null>(null)
+  const [newPaciente, setNewPaciente] = useState({
+    nombres: "", apellidos: "", email: "", dni: "", telefono: "", direccion: "", sexo: "M", fechaNacimiento: "", password: ""
+  })
+
+  // Horarios States
+  const [horarios, setHorarios] = useState<HorarioMedico[]>([])
+  const [showHorarioModal, setShowHorarioModal] = useState(false)
+  const [editingHorarioId, setEditingHorarioId] = useState<number | null>(null)
+  const [newHorario, setNewHorario] = useState({
+    medicoId: 0,
+    sedeId: 0,
+    salaId: null as number | null,
+    fecha: "",
+    horaInicio: "",
+    horaFin: "",
+    duracionSlot: 30
+  })
+  const [isSavingHorario, setIsSavingHorario] = useState(false)
+
   // Data Fetching
   useEffect(() => {
     fetchMedicos()
     fetchUsuarios()
+    fetchPacientes()
     fetchEspecialidades()
     fetchCitas()
     fetchSedes()
+    fetchHorarios()
   }, [])
 
   const fetchSedes = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/sedes`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/sedes`)
       if (res.ok) setSedesDB(await res.json())
     } catch (e) { console.error(e) }
   }
@@ -145,7 +198,7 @@ export default function AdminPage() {
   const fetchCitas = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/citas/admin/todas`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/citas/admin/todas`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) setCitas(await res.json())
@@ -155,7 +208,7 @@ export default function AdminPage() {
   const fetchMedicos = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/medicos`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/medicos`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) setMedicos(await res.json())
@@ -165,17 +218,27 @@ export default function AdminPage() {
   const fetchUsuarios = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/admin/usuarios`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/usuarios`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) setUsuarios(await res.json())
     } catch (e) { console.error(e) }
   }
 
+  const fetchPacientes = async () => {
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/pacientes`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) setPacientes(await res.json())
+    } catch (e) { console.error(e) }
+  }
+
   const fetchEspecialidades = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/especialidades`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/especialidades`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) setEspecialidadesDB(await res.json())
@@ -184,7 +247,9 @@ export default function AdminPage() {
 
   const tabs = [
     { id: "medicos" as TabType, label: "Medicos", icon: Users },
-    { id: "usuarios" as TabType, label: "Usuarios", icon: Users },
+    { id: "usuarios" as TabType, label: "Usuarios", icon: Settings },
+    { id: "pacientes" as TabType, label: "Pacientes", icon: User },
+    { id: "horarios" as TabType, label: "Horarios", icon: Clock },
     { id: "citas" as TabType, label: "Citas", icon: Calendar },
     { id: "reportes" as TabType, label: "Reportes", icon: BarChart3 },
     { id: "configuracion" as TabType, label: "Configuracion", icon: Settings },
@@ -198,13 +263,74 @@ export default function AdminPage() {
   ]
 
 
+  const fetchHorarios = async () => {
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/horarios`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) setHorarios(await res.json())
+    } catch (e) { console.error(e) }
+  }
+
+  // Handlers for Horarios
+  const handleSaveHorario = async () => {
+    if (isSavingHorario) return;
+    setIsSavingHorario(true);
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const url = editingHorarioId 
+        ? `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/horarios/${editingHorarioId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/horarios`
+      const res = await fetch(url, {
+        method: editingHorarioId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newHorario)
+      })
+      if (res.ok) {
+        setShowHorarioModal(false)
+        setSuccessMessage(editingHorarioId ? "Horario actualizado" : "Horario asignado")
+        setTimeout(() => setSuccessMessage(""), 3000)
+        setEditingHorarioId(null)
+        fetchHorarios()
+      }
+    } catch (e) { console.error(e) } finally {
+      setIsSavingHorario(false);
+    }
+  }
+
+  const handleEditHorarioClick = (horario: HorarioMedico) => {
+    setNewHorario({ 
+      medicoId: horario.medicoId, 
+      sedeId: horario.sedeId, 
+      salaId: horario.salaId, 
+      fecha: horario.fecha, 
+      horaInicio: horario.horaInicio, 
+      horaFin: horario.horaFin, 
+      duracionSlot: horario.duracionSlot 
+    })
+    setEditingHorarioId(horario.id)
+    setShowHorarioModal(true)
+  }
+
+  const handleDeleteHorario = async (id: number) => {
+    if (!confirm("¿Eliminar este horario?")) return;
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/horarios/${id}`, {
+        method: "DELETE", headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) fetchHorarios()
+    } catch (e) { console.error(e) }
+  }
+
   // Handlers for Especialidad
   const handleAddEspecialidad = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
       const url = editingEspecialidadId 
-        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/especialidades/${editingEspecialidadId}` 
-        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/especialidades`
+        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/especialidades/${editingEspecialidadId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/especialidades`
       const res = await fetch(url, {
         method: editingEspecialidadId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -230,7 +356,7 @@ export default function AdminPage() {
     if (!confirm("¿Eliminar especialidad?")) return;
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/especialidades/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/especialidades/${id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) fetchEspecialidades()
@@ -242,8 +368,8 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem("smartSaludToken")
       const url = editingSedeId 
-        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/sedes/${editingSedeId}` 
-        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/sedes`
+        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/sedes/${editingSedeId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/sedes`
       const res = await fetch(url, {
         method: editingSedeId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -269,7 +395,7 @@ export default function AdminPage() {
     if (!confirm("¿Eliminar sede?")) return;
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/sedes/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/sedes/${id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) fetchSedes()
@@ -285,7 +411,7 @@ export default function AdminPage() {
     setEditingCitaId(cita.id)
     setShowCitaEditModal(true)
     if (mid && cita.fecha) {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/disponibles?medicoId=${mid}&fecha=${cita.fecha}`)
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/citas/disponibles?medicoId=${mid}&fecha=${cita.fecha}`)
         if (res.ok) {
             const data = await res.json()
             setDisponiblesCita(data)
@@ -296,7 +422,7 @@ export default function AdminPage() {
   const handleSaveCitaEdit = async () => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/admin/${editingCitaId}/datos`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/citas/admin/${editingCitaId}/datos`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(newCitaDatos)
@@ -317,8 +443,8 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem("smartSaludToken")
       const url = editingMedicoId 
-        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/medicos/${editingMedicoId}` 
-        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/medicos`
+        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/medicos/${editingMedicoId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/medicos`
       const res = await fetch(url, {
         method: editingMedicoId ? "PUT" : "POST",
         headers: { 
@@ -360,7 +486,7 @@ export default function AdminPage() {
     if(!confirm("¿Eliminar médico?")) return;
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/medicos/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/medicos/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -372,8 +498,8 @@ export default function AdminPage() {
     try {
       const token = localStorage.getItem("smartSaludToken")
       const url = editingUsuarioId 
-        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/admin/usuarios/${editingUsuarioId}` 
-        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/admin/usuarios`
+        ? `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/admin/usuarios/${editingUsuarioId}` 
+        : `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/usuarios`
       const res = await fetch(url, {
         method: editingUsuarioId ? "PUT" : "POST",
         headers: { 
@@ -412,7 +538,7 @@ export default function AdminPage() {
     if(!confirm("¿Eliminar usuario?")) return;
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/admin/usuarios/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/admin/usuarios/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -420,10 +546,62 @@ export default function AdminPage() {
     } catch (e) { console.error(e) }
   }
 
+  const handleEditPacienteClick = (paciente: Paciente) => {
+    setNewPaciente({
+      nombres: paciente.nombres,
+      apellidos: paciente.apellidos,
+      email: paciente.email,
+      dni: paciente.dni,
+      telefono: paciente.telefono || "",
+      direccion: paciente.direccion || "",
+      sexo: paciente.sexo || "M",
+      fechaNacimiento: paciente.fechaNacimiento || "",
+      password: ""
+    })
+    setEditingPacienteId(paciente.id)
+    setShowPacienteModal(true)
+  }
+
+  const handleSavePaciente = async () => {
+    if (!editingPacienteId) return
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/pacientes/${editingPacienteId}`, {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify(newPaciente)
+      })
+      if (res.ok) {
+        setShowPacienteModal(false)
+        setSuccessMessage("Paciente actualizado exitosamente")
+        setTimeout(() => setSuccessMessage(""), 3000)
+        setEditingPacienteId(null)
+        fetchPacientes()
+      } else {
+        alert("Error al actualizar paciente")
+      }
+    } catch (e) { console.error(e) }
+  }
+
+  const handleDeletePaciente = async (id: number) => {
+    if(!confirm("¿Desactivar paciente?")) return;
+    try {
+      const token = localStorage.getItem("smartSaludToken")
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/admin/pacientes/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) fetchPacientes()
+    } catch (e) { console.error(e) }
+  }
+
   const handleCitaStatusChange = async (id: number, estado: string) => {
     try {
       const token = localStorage.getItem("smartSaludToken")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/admin/${id}/estado?estado=${estado}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/citas/admin/${id}/estado?estado=${estado}`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -447,9 +625,20 @@ export default function AdminPage() {
     u.rolNombre.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const filteredPacientes = pacientes.filter(p => 
+    (p.nombres + " " + p.apellidos).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.dni || "").includes(searchTerm)
+  )
+
   const filteredCitas = citas.filter(c =>
-    (c.pacienteNombre || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.medicoNombre || "").toLowerCase().includes(searchTerm.toLowerCase())
+    c.pacienteNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.medicoNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.especialidadNombre.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const filteredHorarios = horarios.filter(h => 
+    h.medicoNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    h.fecha.includes(searchTerm)
   )
 
   return (
@@ -519,13 +708,13 @@ export default function AdminPage() {
 
           <div className="p-6">
             {/* Search & Actions */}
-            {(activeTab === "medicos" || activeTab === "citas" || activeTab === "usuarios") && (
+            {(activeTab === "medicos" || activeTab === "citas" || activeTab === "usuarios" || activeTab === "pacientes" || activeTab === "horarios") && (
               <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder={activeTab === "medicos" ? "Buscar medico..." : activeTab === "usuarios" ? "Buscar usuario..." : "Buscar cita..."}
+                    placeholder={activeTab === "medicos" ? "Buscar medico..." : activeTab === "usuarios" ? "Buscar usuario..." : activeTab === "pacientes" ? "Buscar paciente..." : activeTab === "horarios" ? "Buscar horario (médico o fecha)..." : "Buscar cita..."}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -672,6 +861,119 @@ export default function AdminPage() {
                               onClick={() => handleDeleteUsuario(usuario.id)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                             >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pacientes Tab */}
+            {activeTab === "pacientes" && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Paciente</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">DNI</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Email</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Teléfono</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Estado</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPacientes.map((paciente) => (
+                      <tr key={paciente.id} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-full flex items-center justify-center">
+                              <User className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{paciente.nombres} {paciente.apellidos}</p>
+                              <p className="text-xs text-gray-500">{paciente.direccion || 'Sin dirección'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-gray-600">{paciente.dni}</td>
+                        <td className="py-4 px-4 text-gray-600">{paciente.email}</td>
+                        <td className="py-4 px-4 text-gray-600">{paciente.telefono || '-'}</td>
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                            paciente.activo ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                          }`}>
+                            {paciente.activo ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleEditPacienteClick(paciente)} className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeletePaciente(paciente.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Horarios Tab */}
+            {activeTab === "horarios" && (
+              <div className="overflow-x-auto">
+                <div className="mb-4 flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Gestión de Horarios</h3>
+                  <button 
+                    onClick={() => {
+                      setNewHorario({ medicoId: medicos[0]?.id || 0, sedeId: sedesDB[0]?.id || 0, salaId: null, fecha: "", horaInicio: "", horaFin: "", duracionSlot: 30 });
+                      setEditingHorarioId(null);
+                      setShowHorarioModal(true);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" /> Agregar Horario
+                  </button>
+                </div>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Médico</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Fecha</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Horario</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Sede</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Disponibilidad</th>
+                      <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHorarios.map((horario) => (
+                      <tr key={horario.id} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="py-4 px-4 font-medium text-gray-900">{horario.medicoNombre}</td>
+                        <td className="py-4 px-4 text-gray-600">{horario.fecha}</td>
+                        <td className="py-4 px-4 text-gray-600">{horario.horaInicio} - {horario.horaFin}</td>
+                        <td className="py-4 px-4 text-gray-600">{horario.sedeNombre} {horario.salaNombre ? `(${horario.salaNombre})` : ''}</td>
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                            horario.disponible ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                          }`}>
+                            {horario.disponible ? 'Disponible' : 'Ocupado'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => handleEditHorarioClick(horario)} className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteHorario(horario.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -1013,7 +1315,7 @@ export default function AdminPage() {
                     const mid = parseInt(e.target.value);
                     setNewCitaDatos({...newCitaDatos, medicoId: mid});
                     if (newCitaDatos.fecha) {
-                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/disponibles?medicoId=${mid}&fecha=${newCitaDatos.fecha}`);
+                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/citas/disponibles?medicoId=${mid}&fecha=${newCitaDatos.fecha}`);
                       if (res.ok) setDisponiblesCita(await res.json());
                     }
                   }} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500">
@@ -1027,7 +1329,7 @@ export default function AdminPage() {
                     const date = e.target.value;
                     setNewCitaDatos({...newCitaDatos, fecha: date});
                     if (newCitaDatos.medicoId) {
-                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/citas/disponibles?medicoId=${newCitaDatos.medicoId}&fecha=${date}`);
+                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}/citas/disponibles?medicoId=${newCitaDatos.medicoId}&fecha=${date}`);
                       if (res.ok) setDisponiblesCita(await res.json());
                     }
                   }} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl" />
@@ -1165,6 +1467,73 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Paciente Modal */}
+      {showPacienteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-bold text-gray-900">Editar Paciente</h3>
+              <button onClick={() => setShowPacienteModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">DNI</label>
+                  <input type="text" value={newPaciente.dni} onChange={(e) => setNewPaciente({...newPaciente, dni: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+                  <input type="text" value={newPaciente.telefono} onChange={(e) => setNewPaciente({...newPaciente, telefono: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nombres</label>
+                  <input type="text" value={newPaciente.nombres} onChange={(e) => setNewPaciente({...newPaciente, nombres: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Apellidos</label>
+                  <input type="text" value={newPaciente.apellidos} onChange={(e) => setNewPaciente({...newPaciente, apellidos: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input type="email" value={newPaciente.email} onChange={(e) => setNewPaciente({...newPaciente, email: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+                <input type="text" value={newPaciente.direccion} onChange={(e) => setNewPaciente({...newPaciente, direccion: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Sexo</label>
+                  <select value={newPaciente.sexo} onChange={(e) => setNewPaciente({...newPaciente, sexo: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                    <option value="M">Masculino</option>
+                    <option value="F">Femenino</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Nacimiento</label>
+                  <input type="date" value={newPaciente.fechaNacimiento} onChange={(e) => setNewPaciente({...newPaciente, fechaNacimiento: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña (Opcional)</label>
+                <input type="password" placeholder="Dejar vacío para no cambiar" value={newPaciente.password} onChange={(e) => setNewPaciente({...newPaciente, password: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500" />
+              </div>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <button onClick={() => setShowPacienteModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50">Cancelar</button>
+              <button onClick={handleSavePaciente} className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center justify-center gap-2">
+                <Save className="w-5 h-5" /> Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Usuario Modal */}
       {showUsuarioModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -1246,6 +1615,98 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      {/* Horario Modal */}
+      {showHorarioModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editingHorarioId ? "Editar Horario" : "Asignar Horario Médico"}
+              </h3>
+              <button onClick={() => setShowHorarioModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Médico</label>
+                <select
+                  value={newHorario.medicoId}
+                  onChange={(e) => setNewHorario({ ...newHorario, medicoId: Number(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                >
+                  <option value={0}>Seleccionar Médico</option>
+                  {medicos.map(m => (
+                    <option key={m.id} value={m.id}>{m.nombres} {m.apellidos}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sede</label>
+                  <select
+                    value={newHorario.sedeId}
+                    onChange={(e) => setNewHorario({ ...newHorario, sedeId: Number(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  >
+                    <option value={0}>Seleccionar Sede</option>
+                    {sedesDB.map(s => (
+                      <option key={s.id} value={s.id}>{s.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duración (min)</label>
+                  <input
+                    type="number"
+                    value={newHorario.duracionSlot}
+                    onChange={(e) => setNewHorario({ ...newHorario, duracionSlot: Number(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={newHorario.fecha}
+                  onChange={(e) => setNewHorario({ ...newHorario, fecha: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hora Inicio</label>
+                  <input
+                    type="time"
+                    value={newHorario.horaInicio}
+                    onChange={(e) => setNewHorario({ ...newHorario, horaInicio: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hora Fin</label>
+                  <input
+                    type="time"
+                    value={newHorario.horaFin}
+                    onChange={(e) => setNewHorario({ ...newHorario, horaFin: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleSaveHorario}
+                disabled={isSavingHorario}
+                className={`w-full ${isSavingHorario ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 mt-4`}
+              >
+                <Save className="w-5 h-5" />
+                {isSavingHorario ? "Guardando..." : (editingHorarioId ? "Guardar Cambios" : "Guardar Horario")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

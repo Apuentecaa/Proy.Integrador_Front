@@ -41,6 +41,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
+      <head>
+      </head>
       <body className="font-sans antialiased">
         <AuthProvider>
           <DoctorsProvider>

@@ -28,7 +28,10 @@ export default function DashboardPage() {
 
   // Dynamic dashboard routing based on role
   if (user?.role === 'admin') {
-    return <AdminPanel onBack={() => logout()} />
+    if (typeof window !== 'undefined') {
+      router.replace('/admin')
+    }
+    return null
   }
 
   if (user?.role === 'doctor') {

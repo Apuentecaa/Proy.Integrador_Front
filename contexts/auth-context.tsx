@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string, role: Role = 'patient') => {
     try {
       // Conexión al Backend de Spring Boot mediante REST API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/auth/login`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,13 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Redirigir según el rol
       if (userRole === 'admin' || userRole === 'super_admin') {
-        router.push('/dashboard/admin')
-      } else if (userRole === 'doctor') {
-        router.push('/dashboard/doctor')
-      } else if (userRole === 'receptionist') {
-        router.push('/dashboard/receptionist')
+        router.push('/admin')
       } else {
-        router.push('/dashboard/patient')
+        router.push('/dashboard')
       }
       
       return userRole
@@ -95,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nombres = parts[0] || name
       const apellidos = parts.slice(1).join(' ') || '.' // Require not null
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/auth/register`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
