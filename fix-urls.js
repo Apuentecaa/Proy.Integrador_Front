@@ -1,52 +1,42 @@
 const fs = require('fs');
 const path = require('path');
 
-function walk(dir) {
-  let results = [];
-  const list = fs.readdirSync(dir);
-  list.forEach(file => {
-    file = path.join(dir, file);
-    const stat = fs.statSync(file);
-    if (stat && stat.isDirectory()) {
-      if (!file.includes('node_modules') && !file.includes('.next')) {
-        results = results.concat(walk(file));
-      }
-    } else {
-      if (file.endsWith('.tsx') || file.endsWith('.ts')) {
-        results.push(file);
-      }
-    }
-  });
-  return results;
-}
+const filesToFix = [
+  'app/admin/page.tsx',
+  'app/reservar/page.tsx'
+];
 
-const files = walk('.');
+filesToFix.forEach(file => {
+  const filePath = path.join(__dirname, file);
+  if (!fs.existsSync(filePath)) return;
 
-files.forEach(file => {
-  let c = fs.readFileSync(file, 'utf8');
-  let modified = false;
+  let content = fs.readFileSync(filePath, 'utf8');
+
+  // Insert the helper at the top (after imports) if not there
+  if (!content.includes('const API_BASE_URL')) {
+    content = content.replace(
+      /(import .*?\n)+/,
+      match => match + `\nconst baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com";\nconst API_BASE_URL = baseUrl.endsWith('/api/v1') ? baseUrl : \`\${baseUrl}/api/v1\`;\n`
+    );
+  }
+
+  // Replace variations
+  // Variation 1: `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1
+  content = content.replace(/\$\{process\.env\.NEXT_PUBLIC_API_URL \|\| "https:\/\/backend-smartsalud-a8ep\.onrender\.com"\}\/api\/v1/g, '${API_BASE_URL}');
   
-  // Example: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/medicos`
-  // becomes `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/medicos`
-  if (c.includes('"http://localhost:8080/api/v1"}')) {
-    c = c.replace(/"http:\/\/localhost:8080\/api\/v1"\}/g, '"https://backend-smartsalud-a8ep.onrender.com"}/api/v1');
-    modified = true;
-  }
-  if (c.includes('`http://localhost:8080/api/v1`}')) {
-    c = c.replace(/`http:\/\/localhost:8080\/api\/v1`\}/g, '"https://backend-smartsalud-a8ep.onrender.com"}/api/v1');
-    modified = true;
-  }
-
-  // Handle the weird nested one found in app/admin/page.tsx:
-  // `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/medicos
-  if (c.includes('`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}`}/')) {
-    c = c.replace(/\`\$\{process\.env\.NEXT_PUBLIC_API_URL \|\| \`\$\{process\.env\.NEXT_PUBLIC_API_URL \|\| "http:\/\/localhost:8080\/api\/v1"\}\`\}\//g, '`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/');
-    modified = true;
-  }
+  // Variation 2: `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1`}`
+  content = content.replace(/\$\{process\.env\.NEXT_PUBLIC_API_URL \|\| `\$\{process\.env\.NEXT_PUBLIC_API_URL \|\| "https:\/\/backend-smartsalud-a8ep\.onrender\.com"\}\/api\/v1`\}/g, '${API_BASE_URL}');
   
-  if (modified) {
-    fs.writeFileSync(file, c);
-    console.log(`Modified ${file}`);
-  }
+  // Variation 3 (newline or spaces inside template literal)
+  content = content.replace(/\$\{process\.env\.NEXT_PUBLIC_API_URL \|\| \n?"https:\/\/backend-smartsalud-a8ep\.onrender\.com"\}\/api\/v1/g, '${API_BASE_URL}');
+
+  // Variation 4: nested with newlines
+  content = content.replace(/\$\{process\.env\.NEXT_PUBLIC_API_URL \|\| \n?`\$\{process\.env\.NEXT_PUBLIC_API_URL \|\| \n?"https:\/\/backend-smartsalud-a8ep\.onrender\.com"\}\/api\/v1`\}/g, '${API_BASE_URL}');
+  
+  // Actually, let's just do a blanket regex for any process.env.../api/v1 pattern
+  content = content.replace(/\$\{process\.env\.NEXT_PUBLIC_API_URL[^}]*\}\/api\/v1/g, '${API_BASE_URL}');
+  content = content.replace(/\$\{process\.env\.NEXT_PUBLIC_API_URL[^}]*`\$\{process[^`]*`\}/g, '${API_BASE_URL}');
+
+  fs.writeFileSync(filePath, content);
+  console.log('Fixed', file);
 });
-console.log('Replaced local URL fallbacks');

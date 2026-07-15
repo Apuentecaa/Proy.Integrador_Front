@@ -1,5 +1,7 @@
 "use client"
 
+import { API_BASE_URL } from "@/lib/api-client";
+
 import jsPDF from 'jspdf'
 import { Calendar, Clock, MapPin, MoreVertical, Edit, X, CheckCircle2, AlertCircle, DollarSign, CreditCard, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -39,7 +41,7 @@ export default function MyAppointmentsPage() {
 
   const handleDownloadDocument = async (citaId: number) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}`}/api/v1/historial/cita/${citaId}`, {
+      const response = await fetch(`${API_BASE_URL}/historial/cita/${citaId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
         },

@@ -1,5 +1,7 @@
 "use client"
 
+import { API_BASE_URL } from "@/lib/api-client";
+
 import { useState, useEffect } from 'react'
 import { Pill, Clock, Info, Sun, Sunset, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,7 +14,7 @@ export default function PrescriptionsPage() {
   useEffect(() => {
     const fetchRecetas = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/recetas/mis-recetas`, {
+        const response = await fetch(`${API_BASE_URL}/recetas/mis-recetas`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('smartSaludToken')}`,
           },
