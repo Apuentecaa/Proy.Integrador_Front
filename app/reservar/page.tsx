@@ -64,7 +64,7 @@ function BookingContent() {
 
   // Fetch doctors on mount
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/medicos`)
+    fetch(`${API_BASE_URL}/medicos`)
       .then(res => res.json())
       .then(data => setApiDoctors(data))
       .catch(err => console.error("Error loading doctors", err))
@@ -75,7 +75,7 @@ function BookingContent() {
     if (bookingData.doctor && selectedDate) {
       setIsLoadingSlots(true)
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/citas/disponibles?medicoId=${bookingData.doctor}&fecha=${dateStr}`)
+      fetch(`${API_BASE_URL}/citas/disponibles?medicoId=${bookingData.doctor}&fecha=${dateStr}`)
         .then(res => res.json())
         .then(data => setApiTimeSlots(data))
         .catch(err => console.error("Error loading slots", err))
@@ -149,7 +149,7 @@ function BookingContent() {
   const handleProcessPayment = async (cardNumber: string, cvv: string): Promise<string | null> => {
     try {
       const token = localStorage.getItem('smartSaludToken')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://backend-smartsalud-a8ep.onrender.com"}/api/v1/citas/reservar`, {
+      const response = await fetch(`${API_BASE_URL}/citas/reservar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
